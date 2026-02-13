@@ -9,6 +9,8 @@ GraphGuard is an intelligent authentication and fraud detection system that uses
 - **Comprehensive Monitoring**: Automatic logging of all interactions with performance metrics
 - **Production-Ready Architecture**: Scalable design with fallback mechanisms and monitoring
 
+- **Deployed App:** https://graphguard1.streamlit.app/
+
 ### Files Included
 
 #### 1. `streamlit_app.py` - Main Application
@@ -280,37 +282,14 @@ streamlit run streamlit_app.py
    - Deployed application link
    - Week4_Deliverables.docx (if separate from repo)
 
-### Contact & Support
 
-**Repository:** [Insert your GitHub URL]  
-**Deployed App:** [Insert Streamlit Cloud or AWS URL]  
-**Team Members:** [Insert team names]  
-**Course:** CS 5588 - Data Science Capstone  
-**Date:** February 12, 2026
+
 
 ---
-
-## Additional Resources
-
-### Documentation
-- Streamlit docs: https://docs.streamlit.io
-- Anthropic Claude API: https://docs.anthropic.com
-- Plotly visualization: https://plotly.com/python
 
 ### Related Files
 - Original assignment: CS5588_Week4_HandsOn.docx
 - Transaction data: transactions_export_20260213_000349.csv
 - Sample logs: logs/product_metrics.csv
 
-### Version History
-- **v1.0** (Feb 12, 2026): Initial Week 4 submission
-  - Integrated CSV transaction data
-  - Implemented logging system
-  - Created comprehensive documentation
-  - Added deployment architecture
 
----
-
-**Last Updated:** February 12, 2026  
-**Version:** 1.0  
-**Status:** Ready for submission ✅
