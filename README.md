@@ -1,300 +1,324 @@
-# GraphGuard - AI-Powered Dynamic Authentication System
-## Week 4 Capstone Integration Submission
+# GraphGuard — AI-Powered Fraud Detection & Dynamic Authentication System
 
-
-
-- **Deployed App:** https://graphguard1.streamlit.app/
-
-
-### Project Overview
-GraphGuard is an intelligent authentication and fraud detection system that uses AI to generate personalized security challenges based on real transaction history. The system provides:
-
-- **Dynamic Authentication**: AI-generated questions specific to each user's transaction history
-- **Real-time Fraud Detection**: Pattern analysis and risk scoring for suspicious transactions
-- **Comprehensive Monitoring**: Automatic logging of all interactions with performance metrics
-- **Production-Ready Architecture**: Scalable design with fallback mechanisms and monitoring
-
-
-
-### Files Included
-
-#### 1. `streamlit_app.py` - Main Application
-Updated Streamlit application with:
-- CSV transaction data loading (uses your actual transaction file)
-- Comprehensive logging system (`logs/product_metrics.csv`)
-- Real-time monitoring dashboard
-- Authentication and fraud detection modules
-- Fallback to demo data if CSV not found
-
-#### 2. `Week4_Deliverables.docx` - Complete Documentation
-Comprehensive capstone documentation including:
-- **Section A**: Capstone Product Integration Brief
-- **Section B**: Application Integration details
-- **Section C**: Monitoring & Logging implementation
-- **Section D**: Capstone Evaluation with impact metrics
-- **Section E**: Deployment Readiness Plan with architecture
-- **Section F**: Failure scenarios and mitigation strategies
-
-#### 3. `logs/product_metrics.csv` - Sample Logs
-Contains 10 example logged interactions demonstrating:
-- Authentication generation events
-- Authentication verification events
-- Fraud detection analysis events
-- Latency measurements
-- Confidence scores
-- Success/failure status
-
-### Quick Start Guide
-
-#### Prerequisites
-```bash
-pip install streamlit pandas plotly anthropic
-```
-
-#### Running the Application
-
-**Option 1: Use Your Transaction CSV**
-```bash
-# Place your CSV file in the same directory
-streamlit run streamlit_app.py
-```
-Then in the sidebar:
-1. Select "Load CSV File"
-2. Enter filename: `transactions_export_20260213_000349.csv`
-3. Click "Load Data"
-
-**Option 2: Use Demo Data**
-```bash
-streamlit run streamlit_app.py
-```
-Then in the sidebar:
-1. Select "Demo Data"
-2. System automatically generates synthetic transactions
-
-#### Optional: Enable Full AI Features
-Create `.streamlit/secrets.toml`:
-```toml
-ANTHROPIC_API_KEY = "your-api-key-here"
-```
-*Note: System works in demo mode without API key*
-
-### Application Features
-
-#### Tab 1: Authentication 🔑
-1. Select a user from dropdown
-2. Choose security level (LOW/MEDIUM/HIGH/CRITICAL)
-3. Click "Generate Questions" to create AI-powered challenges
-4. Answer the questions and submit
-5. View authentication result and score
-
-#### Tab 2: Fraud Detection 🚨
-1. Select a user
-2. Choose a transaction from their history
-3. Click "Analyze with AI"
-4. View fraud score, risk level, insights, and recommendations
-
-#### Tab 3: Dashboard 📊
-- System-wide statistics
-- Transaction distribution by category
-- Daily volume trends
-- Top merchant analysis
-
-#### Tab 4: Explorer 🔍
-- Filter transactions by user, category, location, amount
-- Export filtered data to CSV
-- Explore complete transaction dataset
-
-### Monitoring & Logs
-
-#### Log File Location
-`logs/product_metrics.csv`
-
-#### Logged Fields
-- **timestamp**: ISO 8601 timestamp
-- **user_task_type**: Operation type (authentication_generation, authentication_verification, fraud_detection)
-- **user_id**: User identifier
-- **retrieval_configuration**: Security level or analysis type
-- **latency_ms**: Response time in milliseconds
-- **evidence_ids**: Transaction IDs used as evidence
-- **confidence_score**: Model confidence (0.0-1.0)
-- **faithfulness_indicator**: Quality indicator (high/medium/low/error)
-- **status**: Operation result (success/failed)
-
-#### Viewing Logs
-The sidebar shows:
-- Total interactions logged
-- System success rate
-- Log file path
-
-### Architecture
-
-```
-User Interface (Streamlit)
-        ↓
-API Gateway / Load Balancer
-        ↓
-    ┌───────────────┬───────────────┐
-    ↓               ↓               ↓
-Authentication  Fraud Detection  Logging
-Module          Engine           System
-    ↓               ↓               ↓
-    └───────────────┴───────────────┘
-                    ↓
-        Transaction Database
-                    ↓
-        Monitoring & Alerts
-```
-
-### Data Schema
-
-#### Transaction CSV Format
-```
-TRANSACTION_ID,USER_ID,MERCHANT_NAME,CATEGORY,AMOUNT,LOCATION,TRANSACTION_DATE,STATUS
-862E6A0C5BC9,USER_008,CVS,Retail,294.94,"Chicago, IL",2026-02-12 17:46:36,COMPLETED
-```
-
-#### Supported Categories
-- Coffee Shops
-- Gas Stations
-- Restaurants
-- Grocery
-- Electronics
-- Jewelry
-- Retail
-- Clothing
-
-### Deployment Notes
-
-#### Local Development
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Run application
-streamlit run streamlit_app.py
-
-# Access at http://localhost:8501
-```
-
-#### Production Deployment
-
-**Streamlit Cloud:**
-1. Push code to GitHub
-2. Connect to Streamlit Cloud
-3. Add secrets (ANTHROPIC_API_KEY)
-4. Deploy
-
-**AWS/Azure:**
-1. Containerize with Docker
-2. Deploy to ECS/Fargate or App Service
-3. Configure environment variables
-4. Set up monitoring (CloudWatch/Application Insights)
-
-**Scaling Considerations:**
-- Use PostgreSQL for transaction database (not CSV)
-- Implement Redis caching for frequent queries
-- Load balancer for multiple app instances
-- Auto-scaling based on CPU/memory metrics
-
-### Security & Compliance
-
-#### Implemented Security Features
-- API key authentication for Claude API
-- Rate limiting (configurable)
-- PII data handling (transaction IDs only)
-- Secure logging (no sensitive data exposure)
-
-#### Required for Production
-- TLS/SSL encryption for all traffic
-- Database encryption at rest
-- RBAC for admin functions
-- Audit logging for compliance
-- GDPR/PCI-DSS compliance measures
-
-### Troubleshooting
-
-#### Issue: CSV File Not Found
-**Solution:** 
-- Ensure CSV file is in same directory as app
-- Check filename matches exactly (case-sensitive)
-- Or use "Demo Data" mode for testing
-
-#### Issue: AI Questions Not Generating
-**Solution:**
-- System automatically falls back to demo mode
-- Add ANTHROPIC_API_KEY for full AI features
-- Check API key is valid and has credits
-
-#### Issue: Slow Performance
-**Solution:**
-- Use data caching (already implemented)
-- Reduce transaction history size (set to last 10-20)
-- Deploy on more powerful instance
-
-#### Issue: Logs Not Creating
-**Solution:**
-- Check write permissions on logs directory
-- Verify logs folder exists
-- System creates automatically on first run
-
-### Performance Metrics
-
-#### Target Performance
-- Authentication latency: <500ms (P95)
-- Fraud detection latency: <1000ms (P95)
-- Success rate: >95%
-- System uptime: 99.9%
-
-#### Actual Performance (from logs)
-- Average authentication latency: ~380ms
-- Average fraud detection latency: ~880ms
-- Success rate: 100% (10/10 logged interactions)
-- All operations completed successfully
-
-### Week 4 Deliverables Checklist
-
-✅ **A. Integration Brief** - See Week4_Deliverables.docx Section A  
-✅ **B. Application Integration** - streamlit_app.py with all components  
-✅ **C. Monitoring & Logging** - logs/product_metrics.csv with 10+ entries  
-✅ **D. Evaluation** - Impact metrics and technical analysis in document  
-✅ **E. Deployment Plan** - Architecture diagram and scaling strategy  
-✅ **F. Failure Analysis** - "Silent Drift" scenario with mitigation  
-✅ **Individual Reflection** - Template provided in document  
-
-### Next Steps
-
-#### For Assignment Submission
-1. **GitHub Repository:**
-   - Upload all files to your repository
-   - Include README.md (this file)
-   - Push transaction CSV and logs folder
-   - Tag release as `week-4-submission`
-
-2. **Deploy Application:**
-   - Deploy to Streamlit Cloud or AWS
-   - Get public URL
-   - Update document with deployment link
-   - Test all features on deployed version
-
-3. **Complete Individual Reflection:**
-   - Open Week4_Deliverables.docx
-   - Navigate to "Individual Reflection" section
-   - Write 1 paragraph about production readiness improvements
-   - Save and include in submission
-
-4. **Canvas Submission:**
-   - GitHub repository link
-   - Deployed application link
-   - Week4_Deliverables.docx (if separate from repo)
-
-
-
+> **Course:** CS 5588 — Data Science Capstone | **Date:** February 2026
 
 ---
 
-### Related Files
-- Original assignment: CS5588_Week4_HandsOn.docx
-- Transaction data: transactions_export_20260213_000349.csv
-- Sample logs: logs/product_metrics.csv
+## 📋 Table of Contents
+- [Project Overview](#project-overview)
+- [System Architecture](#system-architecture)
+- [Pipeline Workflow](#pipeline-workflow)
+- [Repository Structure](#repository-structure)
+- [Quick Start](#quick-start)
+- [Component Details](#component-details)
+- [Monitoring & Logging](#monitoring--logging)
+- [Implemented Extensions](#implemented-extensions)
+- [Demo Video](#demo-video)
 
+---
 
+## Project Overview
+
+GraphGuard is an end-to-end **fraud detection and dynamic authentication system** that processes financial transaction data through a complete data pipeline:
+
+**Data Sources → Cloud Warehouse (Snowflake) → Feature Engineering → Modeling / Decision Layer → Streamlit Dashboard**
+
+The system uses a hybrid approach combining **rule-based heuristics**, **statistical anomaly detection** (z-score, velocity checks), and **machine learning** (IsolationForest) to score transaction risk in real-time. An AI-powered authentication module uses **Google Gemini LLM** with **RAG (Retrieval-Augmented Generation)** over project data to dynamically generate security challenges adapted to each user's risk profile.
+
+### Key Capabilities
+- **3,000 real transactions** across 10 users, 8 categories, 30+ merchants
+- **19 engineered features** per transaction (amount, velocity, geographic, temporal, categorical)
+- **Hybrid fraud scoring** with weighted combination of 5 risk signals
+- **Adaptive authentication** with meaningful questions about stores, locations, and categories (no risk scores)
+- **Transaction habit prediction model** that learns each user's spending patterns
+- **Production-ready RAG pipeline** with query rewriting, re-ranking, confidence scoring, and automated evaluation
+- **Full pipeline monitoring** with execution logs and performance metrics
+
+---
+
+## System Architecture
+
+![GraphGuard Architecture](docs/architecture_diagram.png)
+
+```
+┌──────────────┐     ┌──────────────┐     ┌───────────────────┐
+│ CSV Data     │────▶│ Ingestion    │────▶│ Snowflake         │
+│ (301 txns)   │     │ Script       │     │ RAW_TRANSACTIONS  │
+└──────────────┘     └──────────────┘     └─────────┬─────────┘
+                                                    │
+                                                    ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   Feature Engineering                        │
+│  19 features: amount z-score, velocity (1h/24h/7d),         │
+│  category risk, geographic entropy, time-of-day, …          │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+          ┌─────────────────┐   ┌─────────────────┐
+          │ Fraud Model     │   │ Auth Decision   │
+          │ IsolationForest │   │ Risk Profiles   │
+          │ + Rule Scoring  │   │ + Gemini LLM    │
+          └────────┬────────┘   └────────┬────────┘
+                   │                     │
+                   └──────────┬──────────┘
+                              ▼
+          ┌───────────────────────────────────┐
+          │        RAG Engine (ChromaDB)      │
+          │  Embeds CSV + SQL → Vector Store  │
+          └──────────────┬────────────────────┘
+                         ▼
+              ┌───────────────────────────┐
+              │  Streamlit Dashboard      │
+              │  🔑 Auth  🚨 Fraud       │
+              │  📊 Dashboard  🔍 RAG Q&A│
+              └───────────────────────────┘
+                              │
+              ┌───────────────────────────┐
+              │  Gemini LLM (2.0 Flash)   │
+              │  Dynamic Questions + RAG  │
+              │  Answer Verification      │
+              └───────────────────────────┘
+                              │
+              ┌───────────────────────────┐
+              │  Monitoring & Logging     │
+              │  pipeline_logs.csv        │
+              └───────────────────────────┘
+```
+
+---
+
+## Pipeline Workflow
+
+| Stage | Script / File | Input | Output |
+|-------|--------------|-------|--------|
+| **1. Ingestion** | `scripts/ingest_csv_to_snowflake.py` | CSV file | Snowflake `RAW_TRANSACTIONS` |
+| **2. Feature Engineering** | `scripts/feature_engineering.py` | Raw transactions | `features_output.csv` (19 features) |
+| **3. Fraud Scoring** | `models/fraud_model.py` | Feature CSV | `fraud_scores_output.csv` |
+| **4. Auth Profiling** | `models/auth_decision.py` | Fraud scores | `auth_profiles_output.csv` |
+| **5. Dashboard** | `streamlit_app.py` | All outputs | Interactive web app (Gemini + RAG) |
+
+### Reproducing the Pipeline
+```bash
+# Step 1: Ingest data (dry-run mode — no Snowflake credentials needed)
+python scripts/ingest_csv_to_snowflake.py --dry-run
+
+# Step 2: Compute features
+python scripts/feature_engineering.py
+
+# Step 3: Score transactions
+python models/fraud_model.py
+
+# Step 4: Generate auth profiles
+python models/auth_decision.py
+
+# Step 5: Launch dashboard
+streamlit run streamlit_app.py
+```
+
+---
+
+## Repository Structure
+
+```
+Hands-On-Week-4/
+├── README.md                          # This file
+├── CONTRIBUTIONS.md                   # Team member responsibilities
+├── requirements.txt                   # Python dependencies
+├── streamlit_app.py                   # Main Streamlit dashboard (Gemini + RAG)
+├── pipeline_logs.csv                  # Pipeline execution log
+│
+├── scripts/                          # Data pipeline scripts
+│   ├── ingest_csv_to_snowflake.py     # CSV → Snowflake ingestion
+│   ├── ingest_config.yaml             # Connection configuration
+│   └── feature_engineering.py         # Feature computation (19 features)
+│
+├── sql/                              # SQL schemas & queries
+│   ├── create_tables.sql              # DDL for 5 Snowflake tables
+│   └── analytical_queries.sql         # 8 analytical queries
+│
+├── models/                           # Modeling / AI / Decision layer
+│   ├── fraud_model.py                 # Hybrid fraud scoring model
+│   ├── auth_decision.py               # Auth decision + Gemini integration
+│   ├── rag_engine.py                  # Production RAG engine (ChromaDB + hybrid retrieval)
+│   ├── rag_evaluator.py               # Automated RAG accuracy evaluation (15 tests)
+│   ├── gemini_question_gen.py         # Dynamic question generation (Gemini LLM)
+│   └── habit_model.py                 # Transaction habit prediction model
+│
+└── docs/                             # Documentation assets
+    └── architecture_diagram.png       # System architecture diagram
+```
+
+---
+
+## Quick Start
+
+### Prerequisites
+```bash
+pip install -r requirements.txt
+```
+
+### Enable AI Features (Optional)
+```bash
+export GOOGLE_API_KEY="your-gemini-api-key-here"
+# Or enter it in the Streamlit sidebar at runtime
+```
+
+### Run the Dashboard
+```bash
+streamlit run streamlit_app.py
+# Open http://localhost:8501
+```
+
+### Run the Full Pipeline
+```bash
+# Feature engineering + scoring (no Snowflake needed)
+python scripts/feature_engineering.py
+python models/fraud_model.py
+python models/auth_decision.py
+```
+
+---
+
+## Component Details
+
+### Data Ingestion (`scripts/`)
+- Reads transaction CSV (301 rows, 10 users, 8 categories)
+- Validates schema against expected columns
+- Supports `--dry-run` mode for testing without Snowflake
+- Logs every pipeline run to `pipeline_logs.csv`
+
+### SQL Layer (`sql/`)
+**5 tables** defined in `create_tables.sql`:
+| Table | Purpose |
+|-------|---------|
+| `RAW_TRANSACTIONS` | Ingested transaction data |
+| `TRANSACTION_FEATURES` | Computed features (19 columns) |
+| `FRAUD_SCORES` | Model output risk scores |
+| `AUTH_EVENTS` | Authentication event log |
+| `PIPELINE_RUNS` | Pipeline execution metadata |
+
+**8 analytical queries** in `analytical_queries.sql`:
+User spending summaries, anomaly detection (>2σ), velocity checks, merchant risk profiles, geographic anomalies, daily trends, and category risk weights.
+
+### Feature Engineering (`scripts/feature_engineering.py`)
+Computes **19 features** per transaction:
+- **Amount**: z-score, is_high_value flag
+- **User-level**: avg/std spend, total transactions
+- **Velocity**: transaction counts in 1h / 24h / 7d windows
+- **Category**: risk weight (Jewelry=0.9, Coffee=0.05)
+- **Time**: hour of day, day of week, is_weekend
+- **Geographic**: is_new_location, location entropy
+
+### Fraud Model (`models/fraud_model.py`)
+Hybrid scoring with **5 weighted signals**:
+| Signal | Weight | Method |
+|--------|--------|--------|
+| Z-Score Flag | 25% | Continuous scoring from amount deviation |
+| Velocity Flag | 20% | Burst detection (1h, 24h thresholds) |
+| Category Risk | 15% | Category-based risk weights |
+| Geographic Risk | 15% | New location + location entropy |
+| IsolationForest | 25% | Unsupervised anomaly detection |
+
+Output: combined score 0.0–1.0 → risk levels: LOW / MEDIUM / HIGH / CRITICAL
+
+### Auth Decision (`models/auth_decision.py`)
+- Computes user risk profiles from fraud scores
+- Recommends security level and number of auth questions
+- **New:** Integrates Gemini LLM for dynamic question generation via `generate_dynamic_questions()`
+- **New:** LLM-powered answer verification via `verify_answers_with_llm()`
+
+### RAG Engine (`models/rag_engine.py`)
+- **Production-ready 5-step pipeline**: query rewriting → metadata filtering → expanded retrieval → re-ranking → confidence scoring
+- Indexes project CSV outputs and SQL queries into **ChromaDB** vector store
+- Uses **Google Generative AI embeddings** (`models/embedding-001`) when API key available
+- **Aggregate document indexing**: category analysis, location heatmap, portfolio overview
+- Provides `query()`, `get_context_for_user()`, `get_context_for_query()`, and `get_detailed_results()` methods
+
+### RAG Evaluator (`models/rag_evaluator.py`)
+- **15 ground truth test cases** covering user profiles, transactions, categories, locations, and portfolio queries
+- **Retrieval metrics**: Hit Rate, MRR (Mean Reciprocal Rank), Type Match Rate, Average Latency
+- **Answer quality scoring**: Gemini-judged accuracy, completeness, and readability (1-5 scale)
+- Integrated into the Streamlit dashboard for one-click evaluation
+
+### Gemini Question Generator (`models/gemini_question_gen.py`)
+- **Dynamic security questions** about stores, locations, categories, and spending from the last 5 days
+- **No risk scores** — questions feel like a real bank verifying identity
+- **30-second live countdown timer** per question (JavaScript-powered, runs independently)
+- **Auto-replacement on miss** — wrong answer or timeout generates a brand-new LLM question
+- **Always unique** — used-question tracking ensures no question is ever repeated
+- Question difficulty scales with security level (LOW → easy, CRITICAL → very hard)
+- **Structured output** with Key Findings, Analysis, Recommendations sections
+- Falls back to static questions when no API key is available
+
+### Transaction Habit Model (`models/habit_model.py`)
+- Learns each user's transaction habits from historical data:
+  - **Top 5 most visited stores** with visit count and average spend per store
+  - **Preferred categories** ranked by frequency
+  - **Typical locations** (top cities)
+  - **Spending patterns** (avg/median amount, spending range)
+  - **Time preferences** (peak hour, peak day, weekend vs weekday)
+- **Habit consistency score** (0-100) measuring behavioral predictability
+- **Next purchase prediction** based on historical frequency distribution
+- **Similar user finder** using KNN on normalized spending features
+- **Anomaly detection** — checks if a new transaction matches learned habits
+
+### Dashboard (`streamlit_app.py`)
+| Tab | Function |
+|-----|----------|
+| 🔑 Authentication | Timed questions (30s countdown), auto-replacement on miss, always-unique LLM questions |
+| 🚨 Fraud Detection | Per-transaction AI fraud analysis with RAG-enhanced structured explanations |
+| 📊 Dashboard | Risk distribution charts, user profiles, pipeline monitoring |
+| 🔍 RAG Explorer | Free-form Q&A with confidence meter, source attribution, and RAG evaluation dashboard |
+| 🧠 User Habits | Top 5 stores with avg spend, next purchase predictions, similar users, anomaly checker |
+
+---
+
+## Monitoring & Logging
+
+### Pipeline Logs (`pipeline_logs.csv`)
+Every pipeline execution is logged with:
+```
+run_id, timestamp, stage, status, records_processed, duration_ms, error_message
+```
+
+### Product Metrics (`logs/product_metrics.csv`)
+Application-level metrics including:
+- Authentication generation/verification events
+- Fraud detection analysis events
+- Latency measurements, confidence scores, success/failure status
+
+---
+
+## Implemented Extensions
+
+1. **Hybrid ML + Rule-Based Model** — Combines IsolationForest with interpretable rules
+2. **Adaptive Authentication** — Security level dynamically adjusts based on user risk profile
+3. **Gemini LLM Question Generation** — Meaningful questions about stores, locations, and categories (no risk scores)
+4. **30-Second Live Timer** — JavaScript-powered countdown per auth question with auto-expiry
+5. **Auto-Replacement Questions** — Wrong answer or timeout triggers a new unique LLM question (never repeats)
+6. **Production RAG Pipeline** — 5-step hybrid retrieval: query rewriting, metadata filtering, re-ranking, confidence scoring
+7. **RAG Evaluation Suite** — 15 ground truth tests with Hit Rate, MRR, Type Match, and LLM-judged answer quality
+8. **Transaction Habit Prediction** — Per-user habit learning with top 5 stores, KNN similarity, anomaly detection
+9. **Top Stores with Avg Spend** — Visual breakdown of most visited store categories with per-visit spending
+10. **Structured AI Output** — All AI answers formatted with Key Findings, Analysis, Recommendations, and Confidence
+11. **RAG-Powered Q&A Explorer** — Free-form natural-language queries with confidence meter and source attribution
+12. **Full Pipeline Monitoring** — Every stage logged with status, duration, and record counts
+13. **Reproducible Pipeline** — Config-driven, dry-run mode, documented step-by-step execution
+14. **Geographic Anomaly Detection** — Location entropy and new-location flagging
+15. **Velocity-Based Detection** — Multi-window (1h/24h/7d) transaction burst detection
+
+---
+
+## Demo Video
+
+📹 **[Demo Video Link]** — *(To be added before submission)*
+
+---
+
+## Team
+
+See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for detailed team member responsibilities.
+
+**Course:** CS 5588 — Data Science Capstone  
+**Date:** February 2026
