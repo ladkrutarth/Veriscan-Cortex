@@ -123,6 +123,43 @@ sequenceDiagram
 
 ---
 
+### 🛡️ Hybrid Fraud Model (ML + Heuristics)
+The scoring engine combines statistical heuristics with deep machine learning to provide a robust multi-layered defense.
+
+```mermaid
+graph LR
+    subgraph Data [Data Ingestion]
+        TXN[(Transactions)]
+    end
+
+    subgraph FE [Layer 1: Heuristics & FE]
+        HEU{19 Signals}
+        HEU --> Z[Amount Z-Score]
+        HEU --> V[Velocity 1h/24h/7d]
+        HEU --> E[Location Entropy]
+        HEU --> R[Category Risk]
+    end
+
+    subgraph ML [Layer 2: Core ML]
+        RF[[Random Forest Classifier]]
+    end
+
+    subgraph Output [Risk Scoring]
+        SCORE{Final Risk Score}
+    end
+
+    TXN --> HEU
+    Z --> RF
+    V --> RF
+    E --> RF
+    R --> RF
+    RF --> SCORE
+    Z -.->|Override| SCORE
+    E -.->|Override| SCORE
+```
+
+---
+
 ## Repository Structure
 
 ```
