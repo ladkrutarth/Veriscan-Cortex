@@ -73,8 +73,6 @@ Veriscan features a cutting-edge, local-first AI stack designed for maximum data
 ### 🧠 Private AI Cortex (Agentic AI)
 The **GuardAgent** acts as the central brain, leveraging a local Llama-3 model for autonomous investigations.
 
-![Private AI Cortex](file:///Users/kukulad/.gemini/antigravity/brain/79141991-debe-49e0-808d-534419484c56/private_ai_cortex_1772224150774.png)
-
 ```mermaid
 graph TD
     User([User Request]) --> Brain{GuardAgent}
@@ -92,8 +90,6 @@ graph TD
 
 ### ☁️ Vector Memory Cloud (Local RAG)
 Institutional knowledge is stored as high-dimensional vectors for semantic retrieval.
-
-![Vector Memory Cloud](file:///Users/kukulad/.gemini/antigravity/brain/79141991-debe-49e0-808d-534419484c56/vector_memory_cloud_1772224165928.png)
 
 ```mermaid
 sequenceDiagram
