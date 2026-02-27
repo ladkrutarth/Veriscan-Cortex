@@ -68,6 +68,49 @@ Veriscan features a cutting-edge, local-first AI stack designed for maximum data
 
 ---
 
+## AI Architecture Visualizations
+
+### 🧠 Private AI Cortex (Agentic AI)
+The **GuardAgent** acts as the central brain, leveraging a local Llama-3 model for autonomous investigations.
+
+![Private AI Cortex](file:///Users/kukulad/.gemini/antigravity/brain/79141991-debe-49e0-808d-534419484c56/private_ai_cortex_1772224150774.png)
+
+```mermaid
+graph TD
+    User([User Request]) --> Brain{GuardAgent}
+    Brain -->|Reasoning| Plan[Create Action Plan]
+    Plan --> Tools{Tool Registry}
+    Tools --> |Query DB| SQL[(Financial Records)]
+    Tools --> |Risk Analysis| ML[Hybrid Fraud Model]
+    Tools --> |Semantic Search| RAG[Vector Knowledge Base]
+    SQL --> Results[Raw Observation]
+    ML --> Results
+    RAG --> Results
+    Results -->|Analysis| Final[Consolidated Report]
+    Final --> User
+```
+
+### ☁️ Vector Memory Cloud (Local RAG)
+Institutional knowledge is stored as high-dimensional vectors for semantic retrieval.
+
+![Vector Memory Cloud](file:///Users/kukulad/.gemini/antigravity/brain/79141991-debe-49e0-808d-534419484c56/vector_memory_cloud_1772224165928.png)
+
+```mermaid
+sequenceDiagram
+    participant U as User Query
+    participant E as MiniLM Embedder
+    participant V as ChromaDB (Local)
+    participant L as Llama-3 (Local)
+
+    U->>E: Vectorize Query (Semantic Hash)
+    E->>V: Search Nearby Vectors (Cosine Similarity)
+    V-->>E: Retrieve Top Context Chunks
+    E->>L: Query + Context (Augmented Prompt)
+    L-->>U: Generative Answer with Evidence
+```
+
+---
+
 ## Pipeline Workflow
 
 | Stage | Script / File | Input | Output |
