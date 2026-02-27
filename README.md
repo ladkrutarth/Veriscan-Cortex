@@ -22,6 +22,11 @@ Veriscan is an end-to-end **Fraud Detection & Security Platform** that processes
 
 The system provides a comprehensive view of institutional risk and consumer safety through deep data analysis, local AI reasoning, and interactive visualizations.
 
+### 🛡️ What is Veriscan?
+The name **Veriscan** represents the fusion of two core security principles:
+- **VERI** (*Verification & Veracity*): A commitment to absolute identity truth through dynamic authentication and data-backed evidence.
+- **SCAN** (*Scanning & Surveillance*): The power of autonomous agentic "scans" that explore transaction history, risk profiles, and global trends to detect threats in milliseconds.
+
 ### Key Capabilities
 - **Private Local AI** — Powered by **Llama-3-8B** optimized for Apple Silicon via **MLX-LM**. No external API keys required.
 - **Agentic Analyst (`GuardAgent`)** — An autonomous AI agent that investigates fraud patterns using real-time tool access (RAG, Risk Profiles, etc.).
