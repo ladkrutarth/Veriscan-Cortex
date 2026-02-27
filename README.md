@@ -29,7 +29,7 @@ The name **Veriscan** represents the fusion of two core security principles:
 
 ### Key Capabilities
 - **Private Local AI** — Powered by **Llama-3-8B** optimized for Apple Silicon via **MLX-LM**.
-- **Agentic Analyst (`GuardAgent`)** — An autonomous AI agent with **100% Tool-Selection Accuracy** and **sub-second Fast-Track responses**.
+- **Agentic Analyst (`GuardAgent`)** — An autonomous AI agent with **100% Tool-Selection Accuracy**.
 - **Local RAG Engine** — Semantic search over 1,300+ local documents using **ChromaDB**.
 - **Hybrid Fraud Scoring** — Combines 19 statistical heuristics with a **98%-accurate Random Forest model**.
 
