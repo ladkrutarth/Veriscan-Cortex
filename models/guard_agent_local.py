@@ -175,7 +175,7 @@ class LocalGuardAgent:
             return {"tool": "get_high_risk_transactions", "args": {"limit": 10}}
 
         # Pattern 3: General knowledge / explanation queries → RAG
-        if any(kw in q for kw in ["WHAT IS", "WHAT ARE", "EXPLAIN", "HOW TO", "DEFINE", "DESCRIBE", "TREND", "CFPB", "DISPUTE", "IDENTITY THEFT", "VELOCITY"]):
+        if any(kw in q for kw in ["WHAT IS", "WHAT ARE", "EXPLAIN", "HOW TO", "DEFINE", "DESCRIBE", "TREND", "CFPB", "DISPUTE", "IDENTITY THEFT", "VELOCITY", "CREDIT FRAUD", "CREDIT CARD FRAUD", "GENERAL KNOWLEDGE"]):
             return {"tool": "query_rag", "args": {"question": query}}
 
         # No match → fall back to LLM reasoning
@@ -188,19 +188,36 @@ class LocalGuardAgent:
         actions_log = []
         current_context = f"User Request: {question}"
 
-        # ── Step 0: Deterministic Intent Router ──
+        # ── Step 0: Deterministic Intent Router (Fast-Track) ──
         routed_call = self._route_intent(question)
         if routed_call:
             tool_name = routed_call["tool"]
             args = routed_call["args"]
             if tool_name in TOOL_REGISTRY:
+                print(f"⚡ Fast-Track Mode Activated → Bypassing LLM")
                 print(f"🎯 Router matched → {tool_name}({args})")
+                
                 result = TOOL_REGISTRY[tool_name]["fn"](**args)
-                result_str = json.dumps(result, indent=2)
-                actions_log.append({"step": 0, "tool": tool_name, "args": args, "result": result_str[:200]+"..."})
-                current_context += f"\nTurn 0 (Router): Called {tool_name}. Result: {result_str}"
+                actions_log.append({"step": 0, "tool": tool_name, "args": args})
+                
+                # Format raw fast-track output based on tool
+                final_answer = ""
+                if tool_name == "query_rag":
+                    final_answer = f"**🔍 RAG Knowledge Base Sync**\n\n{result}"
+                elif tool_name == "get_user_risk_profile":
+                    db_res = json.dumps(result, indent=2)
+                    final_answer = f"**🛡️ User Risk Profile (Fast-Track)**\n```json\n{db_res}\n```"
+                else:
+                    db_res = json.dumps(result, indent=2)
+                    final_answer = f"**🚨 High Risk Transactions (Fast-Track)**\n```json\n{db_res}\n```"
 
-        # ── Steps 1-5: LLM Reasoning Loop ──
+                return {
+                    "answer": final_answer,
+                    "actions": actions_log,
+                    "status": "fast-track-success"
+                }
+
+        # ── Steps 1-5: LLM Reasoning Loop (Fallback) ──
         for i in range(5):
             full_prompt = f"{prompt}\n\nExisting Context:\n{current_context}\n\nDecision:"
             response = self.llm.generate(full_prompt, max_tokens=256)
