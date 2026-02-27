@@ -1,4 +1,4 @@
-# GraphGuard — Ingestion Configuration
+# Veriscan — Ingestion Configuration
 # Update Snowflake credentials before running in live mode.
 
 source:
@@ -8,9 +8,14 @@ source:
   encoding: utf-8
 
 snowflake:
-  account: "HRRTATK-QZ67912"
-  user: "KRUTARTHLAD26"
-  password: "LvHhCv68ZRRb9N8"
+  # It is STRONGLY RECOMMENDED to use environment variables for these fields:
+  # export SNOWFLAKE_ACCOUNT="your-account"
+  # export SNOWFLAKE_USER="your-user"
+  # export SNOWFLAKE_PASSWORD="your-password"
+  
+  account: "YOUR_SNOWFLAKE_ACCOUNT"
+  user: "YOUR_SNOWFLAKE_USER"
+  password: "YOUR_SNOWFLAKE_PASSWORD"
   warehouse: "GRAPH_GUARD_DATABASE"
   database: "GRAPHGUARD_DB"
   schema: "PUBLIC"

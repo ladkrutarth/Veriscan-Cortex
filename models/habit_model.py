@@ -1,5 +1,5 @@
 """
-GraphGuard — Transaction Habit Prediction Model
+2: Veriscan — Transaction Habit Prediction Model
 Learns each user's transaction habits and predicts behavior patterns.
 
 Features:

@@ -1,5 +1,5 @@
 """
-GraphGuard — Dataset Expansion Utility
+2: Veriscan — Dataset Expansion Utility
 Clones existing user data to expand the dataset from 10 to 50+ users.
 Adds jitter to amounts and dates to create unique behavior patterns.
 """

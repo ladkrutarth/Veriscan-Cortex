@@ -1,5 +1,5 @@
 """
-GraphGuard — Kaggle Dataset Adapter
+Veriscan — Kaggle Dataset Adapter
 Converts the kartik2112/fraud-detection Kaggle CSV (fraudTrain.csv / fraudTest.csv)
 into the project's internal transaction schema.
 
@@ -189,8 +189,6 @@ def main():
 
     print("\n🚀 Next steps:")
     print("   python scripts/feature_engineering.py")
-    print("   python models/fraud_model.py")
-    print("   python models/auth_decision.py")
 
 
 if __name__ == "__main__":

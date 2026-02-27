@@ -1,4 +1,4 @@
-# CONTRIBUTIONS.md — GraphGuard Team Responsibilities
+# CONTRIBUTIONS.md — Veriscan Team Responsibilities
 
 > **Note:** Update team member names before final submission.
 
@@ -7,67 +7,64 @@
 | Team Member | Role | Components Owned |
 |-------------|------|------------------|
 | **Member 1** | Data Engineer | Data ingestion scripts, Snowflake schema design, pipeline logging |
-| **Member 2** | ML Engineer | Feature engineering, fraud scoring model (IsolationForest + rules) |
-| **Member 3** | Application Developer | Streamlit dashboard, authentication UI, visualization |
+| **Member 2** | ML Engineer | Feature engineering, fraud scoring model (Random Forest + rules), user habit profiling |
+| **Member 3** | Application Developer | Streamlit dashboard, authentication UI, visualization, accessibility |
 | **Member 4** | DevOps / Analytics | SQL analytical queries, deployment, monitoring, documentation |
 
 ---
 
 ### Member 1 — Data Engineer
 **Files owned:**
-- `scripts/ingest_csv_to_snowflake.py` — CSV to Snowflake ingestion pipeline
-- `scripts/ingest_config.yaml` — ingestion configuration
-- `sql/create_tables.sql` — Snowflake DDL for all 5 tables
+- `scripts/load_kaggle_data.py` — Data adapter & preprocessing
+- `scripts/upload_all_to_snowflake.py` — CSV to Snowflake ingestion pipeline
+- `sql/create_tables.sql` — Snowflake DDL for all data tables
 - `pipeline_logs.csv` — pipeline execution log
 
 **Responsibilities:**
-- Designed the raw data ingestion pipeline with dry-run mode
-- Created Snowflake table schemas (RAW_TRANSACTIONS, PIPELINE_RUNS)
-- Implemented pipeline logging to track every run
-- Ensured reproducibility with config-driven connections
+- Designed the raw data ingestion pipeline with validation steps.
+- Created Snowflake table schemas for transaction and metadata storage.
+- Implemented robust logging to track pipeline execution and data integrity.
+- Ensured reproducibility with config-driven connections.
 
 ---
 
 ### Member 2 — ML Engineer
 **Files owned:**
-- `scripts/feature_engineering.py` — feature computation pipeline
-- `models/fraud_model.py` — fraud scoring (rules + IsolationForest)
-- `models/auth_decision.py` — authentication decision module + Gemini integration
-- `models/rag_engine.py` — RAG engine (ChromaDB + Gemini embeddings)
-- `models/gemini_question_gen.py` — dynamic question generation (Gemini LLM)
+- `scripts/feature_engineering.py` — feature computation pipeline (19 signals)
+- `models/train_fraud_model.py` — training pipeline for Random Forest model
+- `models/habit_model.py` — user behavior profiling and habit similarity scoring
+- `models/fraud_model_rf.joblib` — trained fraud detection model
 
 **Responsibilities:**
-- Designed 19 transaction features (amount, velocity, geographic, time, category)
-- Built hybrid fraud model combining rule-based heuristics and ML
-- Implemented z-score anomaly detection, velocity checks, and geographic risk
-- Created authentication decision logic with adaptive security levels
-- Built RAG engine with ChromaDB vector store and Gemini embeddings
-- Implemented dynamic question generation using Gemini 2.0 Flash LLM
+- Designed 19 transaction features (amount, velocity, geographic, time, category).
+- Built a hybrid fraud model combining statistical heuristics and machine learning.
+- Developed the user habit profiling system for historical behavior comparison.
+- Implemented anomaly detection based on multi-dimensional user profile similarity.
 
 ---
 
 ### Member 3 — Application Developer
 **Files owned:**
-- `streamlit_app.py` — main Streamlit application (Gemini + RAG integrated)
+- `streamlit_app.py` — main Streamlit application (4-tab system)
 - `requirements.txt` — project dependencies
 
 **Responsibilities:**
-- Built the Streamlit dashboard with authentication, fraud detection, dashboard, and RAG explorer tabs
-- Integrated Google Gemini LLM for AI-powered question generation and answer verification
-- Integrated RAG for context-aware fraud analysis and free-form Q&A
-- Designed the user interface with premium dark-themed CSS and visualization components
+- Built the Streamlit dashboard with dedicated tabs for Market Dash, AI Fraud ML, Auth, and CFPB Intel.
+- Developed the context-aware identity verification interface.
+- Implemented accessible "Soft Light-Glass" CSS aesthetics for a premium UI experience.
+- Integrated interactive Plotly visualizations for macro and micro-level data analysis.
 
 ---
 
 ### Member 4 — DevOps / Analytics
 **Files owned:**
-- `sql/analytical_queries.sql` — 8 analytical SQL queries
+- `sql/analytical_queries.sql` — analytical SQL queries
 - `docs/architecture_diagram.png` — system architecture diagram
 - `README.md` — project documentation
 - `CONTRIBUTIONS.md` — this file
 
 **Responsibilities:**
-- Wrote analytical queries for spending patterns, anomaly detection, merchant risk
-- Created the architecture diagram showing end-to-end pipeline
-- Documented system workflow, architecture, and extensions
-- Set up monitoring and evaluation logging
+- Wrote analytical queries for spending patterns, anomaly detection, and merchant risk.
+- Created the architecture diagram showing end-to-end data pipeline.
+- Documented system workflow, component details, and implementation extensions.
+- Set up monitoring and ensured the repository follows best practices.

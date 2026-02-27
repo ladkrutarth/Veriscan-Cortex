@@ -1,5 +1,5 @@
 """
-GraphGuard — Feature Engineering Pipeline
+2: Veriscan — Feature Engineering Pipeline
 Computes transaction features from raw CSV or Snowflake table.
 Outputs features as CSV or loads into Snowflake TRANSACTION_FEATURES table.
 """

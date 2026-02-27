@@ -1,4 +1,4 @@
-# GraphGuard — AI-Powered Fraud Detection & Dynamic Authentication System
+# Veriscan — Advanced Fraud Detection & Private AI Intelligence Dashboard
 
 > **Course:** CS 5588 — Data Science Capstone | **Date:** February 2026
 
@@ -7,85 +7,64 @@
 ## 📋 Table of Contents
 - [Project Overview](#project-overview)
 - [System Architecture](#system-architecture)
+- [Local AI Intelligence](#local-ai-intelligence)
 - [Pipeline Workflow](#pipeline-workflow)
 - [Repository Structure](#repository-structure)
 - [Quick Start](#quick-start)
 - [Component Details](#component-details)
-- [Monitoring & Logging](#monitoring--logging)
 - [Implemented Extensions](#implemented-extensions)
-- [Demo Video](#demo-video)
 
 ---
 
-## Project Overview
+Veriscan is an end-to-end **Fraud Detection & Security Platform** that processes transaction data through a multi-stage intelligence pipeline:
 
-GraphGuard is an end-to-end **fraud detection and dynamic authentication system** that processes financial transaction data through a complete data pipeline:
+**Data Ingestion → Feature Engineering → Hybrid Fraud Modeling → Secure Identity Auth → Private Agentic AI**
 
-**Data Sources → Cloud Warehouse (Snowflake) → Feature Engineering → Modeling / Decision Layer → Streamlit Dashboard**
-
-The system uses a hybrid approach combining **rule-based heuristics**, **statistical anomaly detection** (z-score, velocity checks), and **machine learning** (IsolationForest) to score transaction risk in real-time. An AI-powered authentication module uses **Google Gemini LLM** with **RAG (Retrieval-Augmented Generation)** over project data to dynamically generate security challenges adapted to each user's risk profile.
+The system provides a comprehensive view of institutional risk and consumer safety through deep data analysis, local AI reasoning, and interactive visualizations.
 
 ### Key Capabilities
-- **Real Kaggle dataset** — [kartik2112/fraud-detection](https://www.kaggle.com/datasets/kartik2112/fraud-detection) with 10 users sampled from ~1.8M Sparkov credit card transactions
-- **Ground-truth fraud labels** (`IS_FRAUD_ACTUAL`) enable real model evaluation: Precision, Recall, F1
-- **19 engineered features** per transaction (amount, velocity, geographic, temporal, categorical)
-- **Hybrid fraud scoring** with weighted combination of 5 risk signals
-- **Adaptive authentication** with meaningful questions about stores, locations, and categories (no risk scores)
-- **Transaction habit prediction model** that learns each user's spending patterns
-- **Production-ready RAG pipeline** with query rewriting, re-ranking, confidence scoring, and automated evaluation
-- **Full pipeline monitoring** with execution logs and performance metrics
+- **Private Local AI** — Powered by **Llama-3-8B** optimized for Apple Silicon via **MLX-LM**. No external API keys required.
+- **Agentic Analyst (`GuardAgent`)** — An autonomous AI agent that investigates fraud patterns using real-time tool access (RAG, Risk Profiles, etc.).
+- **Local RAG Engine** — Semantic search over 1,300+ local documents (CFPB complaints and transaction patterns) using **ChromaDB**.
+- **Context-Aware Auth Quiz** — Dynamic, 3-step identity verification system generating unique challenges based on user spending habits.
+- **Hybrid Fraud Scoring** — Combines statistical heuristics with machine learning for high-accuracy anomaly detection.
 
 ---
 
 ## System Architecture
 
-![GraphGuard Architecture](docs/architecture_diagram.png)
-
 ```
 ┌──────────────┐     ┌──────────────┐     ┌───────────────────┐
-│ CSV Data     │────▶│ Ingestion    │────▶│ Snowflake         │
-│ (301 txns)   │     │ Script       │     │ RAW_TRANSACTIONS  │
+│ Kaggle Data  │────▶│ Data Adapter │────▶│ Feature Engineering│
+│ (Transactions)│     │ (Preprocessing)│     │ (19 signals)      │
 └──────────────┘     └──────────────┘     └─────────┬─────────┘
-                                                    │
-                                                    ▼
-┌──────────────────────────────────────────────────────────────┐
-│                   Feature Engineering                        │
-│  19 features: amount z-score, velocity (1h/24h/7d),         │
-│  category risk, geographic entropy, time-of-day, …          │
-└──────────────────────────────┬───────────────────────────────┘
-                               │
-                    ┌──────────┴──────────┐
-                    ▼                     ▼
-          ┌─────────────────┐   ┌─────────────────┐
-          │ Fraud Model     │   │ Auth Decision   │
-          │ IsolationForest │   │ Risk Profiles   │
-          │ + Rule Scoring  │   │ + Gemini LLM    │
-          └────────┬────────┘   └────────┬────────┘
-                   │                     │
-                   └──────────┬──────────┘
-                              ▼
-          ┌───────────────────────────────────┐
-          │        RAG Engine (ChromaDB)      │
-          │  Embeds CSV + SQL → Vector Store  │
-          └──────────────┬────────────────────┘
-                         ▼
-              ┌───────────────────────────┐
-              │  Streamlit Dashboard      │
-              │  🔑 Auth  🚨 Fraud       │
-              │  📊 Dashboard  🔍 RAG Q&A│
-              └───────────────────────────┘
-                              │
-              ┌───────────────────────────┐
-              │  Gemini LLM (2.0 Flash)   │
-              │  Dynamic Questions + RAG  │
-              │  Answer Verification      │
-              └───────────────────────────┘
-                              │
-              ┌───────────────────────────┐
-              │  Monitoring & Logging     │
-              │  pipeline_logs.csv        │
-              └───────────────────────────┘
+                                                     │
+                                                     ▼
+       ┌──────────────────────────────────────────────────────────────────────────┐
+       │                          VERISCAN INTELLIGENCE LAYER                     │
+       │  ┌───────────────┐     ┌───────────────┐     ┌────────────────────────┐  │
+       │  │ Fraud Model   │     │ Auth Engine   │     │ Agentic AI (Local)     │  │
+       │  │ (Hybrid ML)   │     │ (Contextual)  │     │ (Llama-3 / RAG)        │  │
+       │  └───────┬───────┘     └───────┬───────┘     └───────────┬────────────┘  │
+       └──────────│─────────────────────│─────────────────────────│───────────────┘
+                  │                     │                         │
+                  ▼                     ▼                         ▼
+       ┌──────────────────────────────────────────────────────────────────────────┐
+       │                         🛡️ STREAMLIT DASHBOARD                           │
+       │   📊 Market Dash   🚨 AI Fraud ML   🤖 Agentic Analyst  � Auth Quiz     │
+       └──────────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Local AI Intelligence
+
+Veriscan features a cutting-edge, local-first AI stack designed for maximum data privacy and performance on Mac hardware.
+
+- **LLM**: `Meta-Llama-3-8B-Instruct` (4-bit quantized).
+- **Inference**: **MLX-LM** (Native GPU acceleration for M1/M2/M3 chips).
+- **Embeddings**: `all-MiniLM-L6-v2` (Local execution via `sentence-transformers`).
+- **Vector Database**: **ChromaDB** (Persistent local storage for RAG context).
 
 ---
 
@@ -93,234 +72,91 @@ The system uses a hybrid approach combining **rule-based heuristics**, **statist
 
 | Stage | Script / File | Input | Output |
 |-------|--------------|-------|--------|
-| **0. Kaggle Adapter** | `scripts/load_kaggle_data.py` | `dataset/raw/fraudTrain.csv` | `transactions_kaggle.csv` |
-| **1. Ingestion** | `scripts/ingest_csv_to_snowflake.py` | CSV file | Snowflake `RAW_TRANSACTIONS` |
-| **2. Feature Engineering** | `scripts/feature_engineering.py` | Raw transactions | `features_output.csv` (19 features) |
-| **3. Fraud Scoring** | `models/fraud_model.py` | Feature CSV | `fraud_scores_output.csv` + Precision/Recall/F1 |
-| **4. Auth Profiling** | `models/auth_decision.py` | Fraud scores | `auth_profiles_output.csv` |
-| **5. Dashboard** | `streamlit_app.py` | All outputs | Interactive web app (Gemini + RAG) |
-
-### Reproducing the Pipeline
-```bash
-# Step 1: Ingest data (dry-run mode — no Snowflake credentials needed)
-python scripts/ingest_csv_to_snowflake.py --dry-run
-
-# Step 2: Compute features
-python scripts/feature_engineering.py
-
-# Step 3: Score transactions
-python models/fraud_model.py
-
-# Step 4: Generate auth profiles
-python models/auth_decision.py
-
-# Step 5: Launch dashboard
-streamlit run streamlit_app.py
-```
+| **1. Data Adapter** | `scripts/load_kaggle_data.py` | Raw Kaggle CSV | Processed transactions |
+| **2. Feature Eng.** | `scripts/feature_engineering.py` | Transactions | `features_output.csv` (19 features) |
+| **3. Risk Scoring** | `models/train_fraud_model.py` | Engineered Features | `fraud_model_rf.joblib` |
+| **4. RAG Indexing** | `models/rag_engine_local.py` | CFPB CSVs | Local ChromaDB Collection |
 
 ---
 
 ## Repository Structure
 
 ```
-Hands-On-Week-4/
-├── README.md                          # This file
-├── CONTRIBUTIONS.md                   # Team member responsibilities
-├── requirements.txt                   # Python dependencies
-├── streamlit_app.py                   # Main Streamlit dashboard (Gemini + RAG)
-├── pipeline_logs.csv                  # Pipeline execution log
+Veriscan-Dashboard/
+├── streamlit_app.py                   # Main Dashboard UI (4-tab system)
+├── requirements.txt                   # Project dependencies
 │
-├── scripts/                          # Data pipeline scripts
-│   ├── ingest_csv_to_snowflake.py     # CSV → Snowflake ingestion
-│   ├── ingest_config.yaml             # Connection configuration
-│   └── feature_engineering.py         # Feature computation (19 features)
+├── models/                            # Analysis & Modeling Layer
+│   ├── local_llm.py                   # 🧠 MLX-LM Wrapper (Local AI)
+│   ├── guard_agent_local.py           # 🤖 Autonomous Reasoning Loop
+│   ├── rag_engine_local.py            # 🔍 Local RAG & Vector Store
+│   ├── fraud_model_rf.joblib          # � Trained ML Model
+│   └── habit_model.py                 # 🔑 Behavior learning logic
 │
-├── sql/                              # SQL schemas & queries
-│   ├── create_tables.sql              # DDL for 5 Snowflake tables
-│   └── analytical_queries.sql         # 8 analytical queries
+├── scripts/                           # Data Pipeline
+│   ├── feature_engineering.py         # ⚙️ Feature computation (19 metrics)
+│   └── load_kaggle_data.py            # 📦 Data adapter & preprocessing
 │
-├── models/                           # Modeling / AI / Decision layer
-│   ├── fraud_model.py                 # Hybrid fraud scoring model
-│   ├── auth_decision.py               # Auth decision + Gemini integration
-│   ├── rag_engine.py                  # Production RAG engine (ChromaDB + hybrid retrieval)
-│   ├── rag_evaluator.py               # Automated RAG accuracy evaluation (15 tests)
-│   ├── gemini_question_gen.py         # Dynamic question generation (Gemini LLM)
-│   └── habit_model.py                 # Transaction habit prediction model
-│
-└── docs/                             # Documentation assets
-    └── architecture_diagram.png       # System architecture diagram
+└── dataset/csv_data/                  # Data Lake
+    ├── processed_fraud_train.csv      # Base transactions
+    ├── cfpb_credit_card.csv           # 🔍 CFPB Complaint database
+    └── features_output.csv            # ML features
 ```
 
 ---
 
 ## Quick Start
 
-### Prerequisites
+### 1. Requirements
+- macOS with Apple Silicon (M1/M2/M3 recommended)
+- Python 3.9+ (Anaconda environment recommended)
+
+### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### Enable AI Features (Optional)
-```bash
-export GOOGLE_API_KEY="your-gemini-api-key-here"
-# Or enter it in the Streamlit sidebar at runtime
-```
-
-### Run the Dashboard
+### 3. Launch Dashboard
 ```bash
 streamlit run streamlit_app.py
-# Open http://localhost:8501
 ```
-
-### Run the Full Pipeline
-```bash
-# Feature engineering + scoring (no Snowflake needed)
-python scripts/feature_engineering.py
-python models/fraud_model.py
-python models/auth_decision.py
-```
+*Note: On first run, the Llama-3 model (~4.9GB) will be downloaded automatically.*
 
 ---
 
 ## Component Details
 
-### Data Ingestion (`scripts/`)
-- Reads transaction CSV (301 rows, 10 users, 8 categories)
-- Validates schema against expected columns
-- Supports `--dry-run` mode for testing without Snowflake
-- Logs every pipeline run to `pipeline_logs.csv`
+### 🤖 Agentic Analyst (`models/guard_agent_local.py`)
+An autonomous reasoning loop that performs multi-step investigations:
+- **Tool Use**: Queries user risk profiles and the local RAG knowledge base.
+- **Private Reasoning**: All analysis is performed offline via the local LLM.
+- **Reporting**: Generates professional fraud investigation reports with risk levels and recommended actions.
 
-### SQL Layer (`sql/`)
-**5 tables** defined in `create_tables.sql`:
-| Table | Purpose |
-|-------|---------|
-| `RAW_TRANSACTIONS` | Ingested transaction data |
-| `TRANSACTION_FEATURES` | Computed features (19 columns) |
-| `FRAUD_SCORES` | Model output risk scores |
-| `AUTH_EVENTS` | Authentication event log |
-| `PIPELINE_RUNS` | Pipeline execution metadata |
+### � Local RAG Engine (`models/rag_engine_local.py`)
+Provides deep institutional context without cloud API calls:
+- **Knowledge Base**: Indexed from 1,000+ real CFPB consumer complaints.
+- **Semantic Search**: Understands complex queries like "tell me about credit fraud trends".
 
-**8 analytical queries** in `analytical_queries.sql`:
-User spending summaries, anomaly detection (>2σ), velocity checks, merchant risk profiles, geographic anomalies, daily trends, and category risk weights.
-
-### Feature Engineering (`scripts/feature_engineering.py`)
-Computes **19 features** per transaction:
-- **Amount**: z-score, is_high_value flag
-- **User-level**: avg/std spend, total transactions
-- **Velocity**: transaction counts in 1h / 24h / 7d windows
-- **Category**: risk weight (Jewelry=0.9, Coffee=0.05)
-- **Time**: hour of day, day of week, is_weekend
-- **Geographic**: is_new_location, location entropy
-
-### Fraud Model (`models/fraud_model.py`)
-Hybrid scoring with **5 weighted signals**:
-| Signal | Weight | Method |
-|--------|--------|--------|
-| Z-Score Flag | 25% | Continuous scoring from amount deviation |
-| Velocity Flag | 20% | Burst detection (1h, 24h thresholds) |
-| Category Risk | 15% | Category-based risk weights |
-| Geographic Risk | 15% | New location + location entropy |
-| IsolationForest | 25% | Unsupervised anomaly detection |
-
-Output: combined score 0.0–1.0 → risk levels: LOW / MEDIUM / HIGH / CRITICAL
-
-### Auth Decision (`models/auth_decision.py`)
-- Computes user risk profiles from fraud scores
-- Recommends security level and number of auth questions
-- **New:** Integrates Gemini LLM for dynamic question generation via `generate_dynamic_questions()`
-- **New:** LLM-powered answer verification via `verify_answers_with_llm()`
-
-### RAG Engine (`models/rag_engine.py`)
-- **Production-ready 5-step pipeline**: query rewriting → metadata filtering → expanded retrieval → re-ranking → confidence scoring
-- Indexes project CSV outputs and SQL queries into **ChromaDB** vector store
-- Uses **Google Generative AI embeddings** (`models/embedding-001`) when API key available
-- **Aggregate document indexing**: category analysis, location heatmap, portfolio overview
-- Provides `query()`, `get_context_for_user()`, `get_context_for_query()`, and `get_detailed_results()` methods
-
-### RAG Evaluator (`models/rag_evaluator.py`)
-- **15 ground truth test cases** covering user profiles, transactions, categories, locations, and portfolio queries
-- **Retrieval metrics**: Hit Rate, MRR (Mean Reciprocal Rank), Type Match Rate, Average Latency
-- **Answer quality scoring**: Gemini-judged accuracy, completeness, and readability (1-5 scale)
-- Integrated into the Streamlit dashboard for one-click evaluation
-
-### Gemini Question Generator (`models/gemini_question_gen.py`)
-- **Dynamic security questions** about stores, locations, categories, and spending from the last 5 days
-- **No risk scores** — questions feel like a real bank verifying identity
-- **30-second live countdown timer** per question (JavaScript-powered, runs independently)
-- **Auto-replacement on miss** — wrong answer or timeout generates a brand-new LLM question
-- **Always unique** — used-question tracking ensures no question is ever repeated
-- Question difficulty scales with security level (LOW → easy, CRITICAL → very hard)
-- **Structured output** with Key Findings, Analysis, Recommendations sections
-- Falls back to static questions when no API key is available
-
-### Transaction Habit Model (`models/habit_model.py`)
-- Learns each user's transaction habits from historical data:
-  - **Top 5 most visited stores** with visit count and average spend per store
-  - **Preferred categories** ranked by frequency
-  - **Typical locations** (top cities)
-  - **Spending patterns** (avg/median amount, spending range)
-  - **Time preferences** (peak hour, peak day, weekend vs weekday)
-- **Habit consistency score** (0-100) measuring behavioral predictability
-- **Next purchase prediction** based on historical frequency distribution
-- **Similar user finder** using KNN on normalized spending features
-- **Anomaly detection** — checks if a new transaction matches learned habits
-
-### Dashboard (`streamlit_app.py`)
-| Tab | Function |
-|-----|----------|
-| 🔑 Authentication | Timed questions (30s countdown), auto-replacement on miss, always-unique LLM questions |
-| 🚨 Fraud Detection | Per-transaction AI fraud analysis with RAG-enhanced structured explanations |
-| 📊 Dashboard | Risk distribution charts, user profiles, pipeline monitoring |
-| 🔍 RAG Explorer | Free-form Q&A with confidence meter, source attribution, and RAG evaluation dashboard |
-| 🧠 User Habits | Top 5 stores with avg spend, next purchase predictions, similar users, anomaly checker |
-
----
-
-## Monitoring & Logging
-
-### Pipeline Logs (`pipeline_logs.csv`)
-Every pipeline execution is logged with:
-```
-run_id, timestamp, stage, status, records_processed, duration_ms, error_message
-```
-
-### Product Metrics (`logs/product_metrics.csv`)
-Application-level metrics including:
-- Authentication generation/verification events
-- Fraud detection analysis events
-- Latency measurements, confidence scores, success/failure status
+### � Dynamic Auth Quiz (`streamlit_app.py`)
+State-managed, 3-step identity verification:
+- **Real Data**: Questions are generated dynamically from the user's transaction history.
+- **AI Verification**: The local LLM generates 4 options and verifies the user's response in real-time.
 
 ---
 
 ## Implemented Extensions
 
-1. **Hybrid ML + Rule-Based Model** — Combines IsolationForest with interpretable rules
-2. **Adaptive Authentication** — Security level dynamically adjusts based on user risk profile
-3. **Gemini LLM Question Generation** — Meaningful questions about stores, locations, and categories (no risk scores)
-4. **30-Second Live Timer** — JavaScript-powered countdown per auth question with auto-expiry
-5. **Auto-Replacement Questions** — Wrong answer or timeout triggers a new unique LLM question (never repeats)
-6. **Production RAG Pipeline** — 5-step hybrid retrieval: query rewriting, metadata filtering, re-ranking, confidence scoring
-7. **RAG Evaluation Suite** — 15 ground truth tests with Hit Rate, MRR, Type Match, and LLM-judged answer quality
-8. **Transaction Habit Prediction** — Per-user habit learning with top 5 stores, KNN similarity, anomaly detection
-9. **Top Stores with Avg Spend** — Visual breakdown of most visited store categories with per-visit spending
-10. **Structured AI Output** — All AI answers formatted with Key Findings, Analysis, Recommendations, and Confidence
-11. **RAG-Powered Q&A Explorer** — Free-form natural-language queries with confidence meter and source attribution
-12. **Full Pipeline Monitoring** — Every stage logged with status, duration, and record counts
-13. **Reproducible Pipeline** — Config-driven, dry-run mode, documented step-by-step execution
-14. **Geographic Anomaly Detection** — Location entropy and new-location flagging
-15. **Velocity-Based Detection** — Multi-window (1h/24h/7d) transaction burst detection
-
----
-
-## Demo Video
-
-📹 **[Demo Video Link]** — *(To be added before submission)*
+1. **Private AI Intelligence Layer** — Llama-3-8B running locally on Metal GPU.
+2. **Autonomous Security Agent** — Tool-capable reasoning loop for fraud analysis.
+3. **Local Vector Search (RAG)** — ChromaDB powered semantic knowledge retrieval.
+4. **Interactive Multi-Step Auth** — Context-aware, state-managed verification quiz.
+5. **Modern Dashboard UI** — Soft Light-Glass aesthetics optimized for high readability.
 
 ---
 
 ## Team
 
-See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for detailed team member responsibilities.
+See [CONTRIBUTIONS.md](CONTRIBUTIONS.md) for detailed responsibilities.
 
 **Course:** CS 5588 — Data Science Capstone  
 **Date:** February 2026

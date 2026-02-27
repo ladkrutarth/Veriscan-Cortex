@@ -5,3 +5,10 @@ chroma_db/
 *.egg-info/
 .env
 .chroma_db/
+.chroma_db_local/
+.chroma_db_cfpb/
+dataset/csv_data/*.csv
+!dataset/csv_data/cfpb_credit_card.csv
+*.log
+*.joblib
+.DS_Store

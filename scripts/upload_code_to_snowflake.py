@@ -1,5 +1,5 @@
 """
-GraphGuard — Upload All Python & SQL Code to Snowflake Internal Stage
+2: Veriscan — Upload All Python & SQL Code to Snowflake Internal Stage
 Stores all project scripts in a Snowflake stage for reproducibility.
 """
 
@@ -20,11 +20,18 @@ def load_config():
 
 def get_connection(cfg):
     import snowflake.connector
+    import os
     sf = cfg["snowflake"]
+    
+    # Prioritize environment variables for security
+    user = os.getenv("SNOWFLAKE_USER", sf["user"])
+    password = os.getenv("SNOWFLAKE_PASSWORD", sf["password"])
+    account = os.getenv("SNOWFLAKE_ACCOUNT", sf["account"])
+    
     return snowflake.connector.connect(
-        user=sf["user"],
-        password=sf["password"],
-        account=sf["account"],
+        user=user,
+        password=password,
+        account=account,
         warehouse=sf["warehouse"],
         database=sf["database"],
         schema=sf["schema"],
@@ -39,7 +46,7 @@ def main():
     wh = cfg["snowflake"]["warehouse"]
 
     print("=" * 60)
-    print("  GraphGuard — Upload Code to Snowflake Stage")
+    print("  Veriscan — Upload All Python & SQL Code to Snowflake Internal Stage")
     print("=" * 60)
 
     conn = get_connection(cfg)
@@ -52,7 +59,7 @@ def main():
 
     # Create internal stage for code
     stage_name = "GRAPHGUARD_CODE_STAGE"
-    cur.execute(f"CREATE STAGE IF NOT EXISTS {stage_name} COMMENT='GraphGuard project source code'")
+    cur.execute(f"CREATE STAGE IF NOT EXISTS {stage_name} COMMENT='Veriscan project source code'")
     print(f"\n✅ Stage {stage_name} ready.\n")
 
     # Collect all files to upload

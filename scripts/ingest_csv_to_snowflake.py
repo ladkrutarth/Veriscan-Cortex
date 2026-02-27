@@ -1,5 +1,5 @@
 """
-GraphGuard — CSV to Snowflake Ingestion Script
+Veriscan — CSV to Snowflake Ingestion Script
 Loads transaction CSV data into Snowflake warehouse.
 Supports --dry-run mode for testing without credentials.
 """
@@ -79,10 +79,16 @@ def get_snowflake_connection(cfg: dict):
         sys.exit(1)
 
     sf = cfg["snowflake"]
+    
+    # Prioritize environment variables for security
+    user = os.getenv("SNOWFLAKE_USER", sf["user"])
+    password = os.getenv("SNOWFLAKE_PASSWORD", sf["password"])
+    account = os.getenv("SNOWFLAKE_ACCOUNT", sf["account"])
+    
     return snowflake.connector.connect(
-        user=sf["user"],
-        password=sf["password"],
-        account=sf["account"],
+        user=user,
+        password=password,
+        account=account,
         warehouse=sf["warehouse"],
         database=sf["database"],
         schema=sf["schema"],

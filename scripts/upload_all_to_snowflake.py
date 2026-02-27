@@ -1,5 +1,5 @@
 """
-GraphGuard — Upload All Datasets to Snowflake
+Veriscan — Upload All Datasets to Snowflake
 Uploads: raw transactions, features, fraud scores, auth profiles, and pipeline logs.
 Also creates all schema tables from sql/create_tables.sql.
 """
@@ -23,11 +23,18 @@ def load_config():
 
 def get_connection(cfg):
     import snowflake.connector
+    import os
     sf = cfg["snowflake"]
+    
+    # Prioritize environment variables for security
+    user = os.getenv("SNOWFLAKE_USER", sf["user"])
+    password = os.getenv("SNOWFLAKE_PASSWORD", sf["password"])
+    account = os.getenv("SNOWFLAKE_ACCOUNT", sf["account"])
+    
     return snowflake.connector.connect(
-        user=sf["user"],
-        password=sf["password"],
-        account=sf["account"],
+        user=user,
+        password=password,
+        account=account,
         warehouse=sf["warehouse"],
         database=sf["database"],
         schema=sf["schema"],
@@ -164,7 +171,7 @@ def upload_csv(conn, csv_path, table_name, truncate_first=True):
 def main():
     cfg = load_config()
     print("=" * 60)
-    print("  GraphGuard — Upload All Datasets to Snowflake")
+    print("  Veriscan — Upload All Datasets to Snowflake")
     print("=" * 60)
     print()
 
