@@ -7,8 +7,13 @@ chroma_db/
 .chroma_db/
 .chroma_db_local/
 .chroma_db_cfpb/
-dataset/csv_data/*.csv
-!dataset/csv_data/cfpb_credit_card.csv
+# Exclude full datasets
+dataset/csv_data/cfpb_credit_card.csv
+dataset/csv_data/fraudTrain.csv
+dataset/csv_data/fraudTest.csv
+
+# Allow sampled datasets for GitHub
+!dataset/csv_data/*_sampled.csv
 *.log
 *.joblib
 .DS_Store

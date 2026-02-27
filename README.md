@@ -157,9 +157,11 @@ Veriscan-Dashboard/
 │   ├── create_tables.sql               # 📋 DDL: 5 Tables + 2 Views
 │   └── analytical_queries.sql          # 📊 8 Analytical Queries
 │
-├── dataset/csv_data/                   # Data Store
-│   ├── fraudTrain.csv / fraudTest.csv  # Kaggle Fraud Dataset
-│   └── cfpb_credit_card.csv            # CFPB Complaints
+├── dataset/csv_data/                   # Data Store (Sampled for GitHub)
+│   ├── fraudTrain_sampled.csv          # Sampled Training Set
+│   ├── fraudTest_sampled.csv           # Sampled Test Set
+│   ├── cfpb_credit_card_sampled.csv    # Sampled CFPB Complaints
+│   └── pipeline_logs.csv               # Pipeline Audit Trail
 │
 └── docs/
     └── architecture_diagram.png        # System Architecture Diagram
