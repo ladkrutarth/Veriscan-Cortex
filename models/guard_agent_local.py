@@ -189,6 +189,7 @@ class LocalGuardAgent:
         current_context = f"User Request: {question}"
 
         # ── Step 0: Deterministic Intent Router ──
+        # If router matches, execute the tool and IMMEDIATELY return — no LLM needed.
         routed_call = self._route_intent(question)
         if routed_call:
             tool_name = routed_call["tool"]
@@ -197,10 +198,40 @@ class LocalGuardAgent:
                 print(f"🎯 Router matched → {tool_name}({args})")
                 result = TOOL_REGISTRY[tool_name]["fn"](**args)
                 result_str = json.dumps(result, indent=2)
-                actions_log.append({"step": 0, "tool": tool_name, "args": args, "result": result_str[:200]+"..."})
-                current_context += f"\nTurn 0 (Router): Called {tool_name}. Result: {result_str}"
+                actions_log.append({"step": 0, "tool": tool_name, "args": args, "result": result_str[:400] + "..."})
 
-        # ── Steps 1-5: LLM Reasoning Loop ──
+                # Format a clean plain-text report without invoking the LLM
+                if tool_name == "query_rag":
+                    answer = f"**Knowledge Base Result:**\n\n{result}"
+                elif tool_name == "get_user_risk_profile":
+                    found = result.get("found", False)
+                    if found:
+                        answer = (
+                            f"**User Risk Profile: {args.get('user_id')}**\n\n"
+                            f"- Security Level: `{result.get('security_level', 'N/A')}`\n"
+                            f"- Average Risk Score: `{result.get('avg_risk', 'N/A')}`\n"
+                            f"- High Risk Transactions: `{result.get('high_risk_count', 'N/A')}`\n"
+                            f"- Total Transactions: `{result.get('txn_count', 'N/A')}`\n"
+                            f"- Risk Distribution: `{result.get('risk_distribution', 'N/A')}`"
+                        )
+                    else:
+                        answer = f"⚠️ User `{args.get('user_id')}` was not found in the database."
+                else:
+                    rows = result if isinstance(result, list) else [result]
+                    lines = [f"**Top {len(rows)} High Risk Transactions:**\n"]
+                    for r in rows[:5]:
+                        lines.append(
+                            f"- User: `{r.get('USER_ID','?')}` | Score: `{r.get('COMBINED_RISK_SCORE','?'):.2f}` | Level: `{r.get('RISK_LEVEL','?')}`"
+                        )
+                    answer = "\n".join(lines)
+
+                return {
+                    "answer": answer,
+                    "actions": actions_log,
+                    "status": "success"
+                }
+
+        # ── Steps 1-5: LLM Reasoning Loop (Fallback for unknown queries) ──
         for i in range(5):
             full_prompt = f"{prompt}\n\nExisting Context:\n{current_context}\n\nDecision:"
             response = self.llm.generate(full_prompt, max_tokens=256)

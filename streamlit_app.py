@@ -660,7 +660,8 @@ def render_agent_tab():
                 with st.expander("🔍 Trace: Agent Reasoning Steps"):
                     for a in result["actions"]:
                         st.markdown(f"**Step {a['step']}:** Calling `{a['tool']}` with args `{a['args']}`")
-                        st.code(a['result'], language="json")
+                        if 'result' in a:
+                            st.code(a['result'], language="json")
             
             # Show final report
             st.markdown("<div class='rag-answer'>", unsafe_allow_html=True)
