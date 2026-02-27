@@ -33,20 +33,6 @@ The name **Veriscan** represents the fusion of two core security principles:
 - **Local RAG Engine** — Semantic search over 1,300+ local documents using **ChromaDB**.
 - **Hybrid Fraud Scoring** — Combines 19 statistical heuristics with a **98%-accurate Random Forest model**.
 
----
-
-## 📊 AI Accuracy Scorecard
-
-We have benchmarked the Veriscan Intelligence Stack across 10+ investigative scenarios to ensure production-grade reliability.
-
-| Intelligence Layer | Metric | Accuracy | Status |
-|:---|:---|:---:|:---:|
-| **Fraud ML** | Random Forest Classifier | **98.18%** | ✅ Production |
-| **Local RAG** | Precision@3 Retrieval | **89%** | ✅ Production |
-| **Agentic AI** | Tool-Selection Success | **100%** | ✅ Production |
-
-> [!IMPORTANT]
-> **The Hybrid Advantage**: By implementing a **Hybrid Intent Router**, we increased Agentic accuracy from 25% to **100%**, ensuring that specific user investigations and system checks are handled with deterministic reliability.
 
 ---
 
