@@ -27,21 +27,12 @@ The name **Veriscan** represents the fusion of two core security principles:
 - **VERI** (*Verification & Veracity*): A commitment to absolute identity truth through dynamic authentication and data-backed evidence.
 - **SCAN** (*Scanning & Surveillance*): The power of autonomous agentic "scans" that explore transaction history, risk profiles, and global trends to detect threats in milliseconds.
 
-### Key Capabilities
-- **Private Local AI** — Powered by **Llama-3-8B** optimized for Apple Silicon via **MLX-LM**.
-- **Agentic Analyst (`GuardAgent`)** — An autonomous AI agent with **100% Tool-Selection Accuracy**.
-- **Local RAG Engine** — Semantic search over 1,300+ local documents using **ChromaDB**.
-- **Hybrid Fraud Scoring** — Combines 19 statistical heuristics with a **98%-accurate Random Forest model**.
-
-
----
+\
 
 ## Visual Architecture
 
 ### 🧠 Private AI Cortex (Agentic AI)
 The **GuardAgent** leverages a local Llama-3 model for autonomous investigations, using a **Hybrid Intent Router** to choose between deterministic keyword matching and deep LLM reasoning.
-
-![Private AI Cortex](file:///Users/kukulad/.gemini/antigravity/brain/79141991-debe-49e0-808d-534419484c56/private_ai_cortex_1772224150774.png)
 
 ```mermaid
 graph TD
