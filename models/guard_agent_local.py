@@ -87,37 +87,50 @@ def tool_query_rag(question: str) -> str:
 TOOL_REGISTRY = {
     "get_user_risk_profile": {
         "fn": tool_get_user_risk_profile,
-        "description": "Get risk profile for a specific user. Args: user_id (str)."
+        "description": "CRITICAL: Use this FIRST for ANY query about a specific User ID (e.g., USER_123). Returns security level and risk scores. Args: user_id (str)."
     },
     "get_high_risk_transactions": {
         "fn": tool_get_high_risk_transactions,
-        "description": "List top N high-risk transactions. Args: limit (int)."
+        "description": "Use to list the most dangerous transactions across the whole system. Args: limit (int)."
     },
     "query_rag": {
         "fn": tool_query_rag,
-        "description": "Query local RAG knowledge base. Args: question (str)."
+        "description": "Use for general questions about fraud trends, CFPB policies, or explaining terms like 'velocity'. Args: question (str)."
     }
 }
 
 SYSTEM_PROMPT = """You are the Veriscan GuardAgent — an autonomous Private Financial Security Specialist.
 You investigate fraud risk using data from your tools.
 
+## Primary Policy: Mandatory Tool Usage
+- If a query contains "USER_X" (where X is any number), you MUST call 'get_user_risk_profile' as your very first action.
+- If a query asks for information or explanations, you MUST call 'query_rag' as your very first action.
+- STOP and CALL a tool before providing any commentary.
+
 ## Tools Available
 {tool_descriptions}
 
-## Workflow
-1. DECIDE: Which tool do you need?
-2. CALL: Respond with ONLY a JSON block like: {{"tool": "tool_name", "args": {{"arg": "val"}}}}
-3. ANALYZE: When you have enough info, provide a final REPORT with Findings, Risk Level (LOW/MED/HIGH), and Recommended Action.
+## Operational Workflow
+1. Thought: Analyze the query intent.
+2. Call: Provide the tool call in a single JSON block.
 
-## Rules
-- ALWAYS cite numbers from the tool results.
-- NEVER invent data.
-- If you need to call a tool, ONLY output the JSON block. No conversational filler.
+## Example 1
+User: Check USER_123 for risk.
+Thought: The request is about a specific User ID. Per policy, I must call get_user_risk_profile first.
+{{ "tool": "get_user_risk_profile", "args": {{ "user_id": "USER_123" }} }}
+
+## Example 2
+User: What is velocity?
+Thought: This is a request for an explanation. I must query the market intelligence RAG.
+{{ "tool": "query_rag", "args": {{ "question": "what is velocity in fraud detection" }} }}
+
+## Final Rule
+- NEVER provide a final answer until you have called at least one tool.
+- ALWAYS output the JSON block for tool calls.
 """
 
 class LocalGuardAgent:
-    """Agentic loop using LocalLLM and local tools."""
+    """Agentic loop using LocalLLM and local tools with hybrid intent routing."""
     
     def __init__(self):
         self.llm = LocalLLM()
@@ -126,14 +139,47 @@ class LocalGuardAgent:
         return "\n".join([f"- {name}: {info['description']}" for name, info in TOOL_REGISTRY.items()])
 
     def _clean_final_answer(self, text: str) -> str:
-        """Strip JSON blocks and any lingering special tokens from final report."""
-        # Remove JSON blocks
-        clean_text = re.sub(r'\{.*\}', '', text, flags=re.DOTALL)
-        # Remove common special tokens or markers
-        clean_text = re.sub(r'<\|.*?\|>', '', clean_text)
-        # Remove turn headers
+        """Strip Thought, JSON blocks and tokens."""
+        clean_text = re.sub(r'<\|.*?\|>', '', text)
+        clean_text = re.sub(r'\{.*\}', '', clean_text, flags=re.DOTALL)
+        clean_text = re.sub(r'(?i)thought:', '', clean_text)
         clean_text = clean_text.replace("assistant", "").replace("user", "").replace("Decision:", "")
         return clean_text.strip()
+
+    def _extract_json(self, text: str) -> Optional[str]:
+        """Find the first complete JSON object using brace matching."""
+        start = text.find('{')
+        if start == -1: return None
+        count = 0
+        for i in range(start, len(text)):
+            if text[i] == '{': count += 1
+            elif text[i] == '}':
+                count -= 1
+                if count == 0:
+                    return text[start:i+1]
+        return None
+
+    def _route_intent(self, query: str) -> Optional[Dict]:
+        """Deterministic keyword-based router — runs BEFORE the LLM.
+        Returns a tool call dict if a pattern matches, else None (LLM fallback)."""
+        q = query.upper()
+
+        # Pattern 1: User-specific queries (e.g. "USER_123", "USER 0", "user_789")
+        match = re.search(r'USER[_\s]?(\d+)', q)
+        if match:
+            user_id = f"USER_{match.group(1)}"
+            return {"tool": "get_user_risk_profile", "args": {"user_id": user_id}}
+
+        # Pattern 2: High-risk / top transactions
+        if any(kw in q for kw in ["HIGH RISK", "TOP TRANSACTION", "MOST DANGEROUS", "HIGHEST RISK", "RISKIEST"]):
+            return {"tool": "get_high_risk_transactions", "args": {"limit": 10}}
+
+        # Pattern 3: General knowledge / explanation queries → RAG
+        if any(kw in q for kw in ["WHAT IS", "WHAT ARE", "EXPLAIN", "HOW TO", "DEFINE", "DESCRIBE", "TREND", "CFPB", "DISPUTE", "IDENTITY THEFT", "VELOCITY"]):
+            return {"tool": "query_rag", "args": {"question": query}}
+
+        # No match → fall back to LLM reasoning
+        return None
 
     def analyze(self, question: str) -> Dict[str, Any]:
         tool_desc = self._build_tool_desc()
@@ -141,16 +187,29 @@ class LocalGuardAgent:
         
         actions_log = []
         current_context = f"User Request: {question}"
-        
-        for i in range(5): # Limit steps
-            full_prompt = f"{prompt}\n\nCurrent Investigation Status:\n{current_context}\n\nDecision:"
-            response = self.llm.generate(full_prompt)
+
+        # ── Step 0: Deterministic Intent Router ──
+        routed_call = self._route_intent(question)
+        if routed_call:
+            tool_name = routed_call["tool"]
+            args = routed_call["args"]
+            if tool_name in TOOL_REGISTRY:
+                print(f"🎯 Router matched → {tool_name}({args})")
+                result = TOOL_REGISTRY[tool_name]["fn"](**args)
+                result_str = json.dumps(result, indent=2)
+                actions_log.append({"step": 0, "tool": tool_name, "args": args, "result": result_str[:200]+"..."})
+                current_context += f"\nTurn 0 (Router): Called {tool_name}. Result: {result_str}"
+
+        # ── Steps 1-5: LLM Reasoning Loop ──
+        for i in range(5):
+            full_prompt = f"{prompt}\n\nExisting Context:\n{current_context}\n\nDecision:"
+            response = self.llm.generate(full_prompt, max_tokens=256)
             
-            # Parse for tool call
-            match = re.search(r'\{.*\}', response, re.DOTALL)
-            if match:
+            # Try to parse a tool call from LLM output
+            json_str = self._extract_json(response)
+            if json_str:
                 try:
-                    call = json.loads(match.group(0))
+                    call = json.loads(json_str)
                     tool_name = call.get("tool")
                     args = call.get("args", {})
                     
@@ -158,19 +217,17 @@ class LocalGuardAgent:
                         print(f"🛠️ Calling tool: {tool_name}({args})")
                         result = TOOL_REGISTRY[tool_name]["fn"](**args)
                         result_str = json.dumps(result, indent=2)
-                        
                         actions_log.append({"step": i+1, "tool": tool_name, "args": args, "result": result_str[:200]+"..."})
-                        current_context += f"\nStep {i+1}: Called {tool_name}. Result: {result_str}"
+                        current_context += f"\nTurn {i+1}: Called {tool_name}. Result: {result_str}"
                         continue
                 except Exception as e:
                     print(f"⚠️ Tool parse error: {e}")
                     
-            # If no tool call found OR tool execution failed, this might be the final answer
+            # Final answer
             final_report = self._clean_final_answer(response)
             
-            # If the response was purely a tool call that we failed to process, 
-            # and there's no text left, don't return it as a success yet unless it's the last turn
             if not final_report and i < 4:
+                current_context += f"\nTurn {i+1} Reasoning: {response.strip()}"
                 continue
 
             return {
