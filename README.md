@@ -30,29 +30,44 @@ The name **Veriscan** represents the fusion of two core security principles:
 
 ## Visual Architecture
 
-### 🧠 Private AI Cortex (Modular Multi-Agent System)
-Veriscan has been upgraded to a **Modular Clean Architecture**. The **GuardAgent** acts as a facade, delegating tasks to specialized, stateful agents:
-- **KnowledgeAgent:** Expert synthesis of fraud intelligence using multi-stage RAG.
-- **RiskScannerAgent:** Instant system-wide health checks and threat scanning.
-- **ProfileAgent:** Deep-dive investigation into specific user risk behaviors.
-- **SynthesisAgent:** Orchestrates complex reasoning, integrating memory and multiple tools into structured 300+ word reports.
-- **Stateful Memory:** All agents now support **ConversationMemory**, enabling context-aware follow-up questions within the same session.
+### � Multi-Agent Orchestration Flow
+Veriscan-Cortex uses a **Deterministic Router** to ensure maximum speed and a **Synthesis Orchestrator** for complex reasoning.
 
 ```mermaid
-graph TD
-    User([User Request]) --> Router{Hybrid Router}
-    Router -->|Match| Tool[Direct Tool Call]
-    Router -->|Fallback| Brain{Llama-3 Reasoning}
-    Brain -->|Step-by-Step| Tool
-    Tool -->|Query DB| SQL[(Financial Records)]
-    Tool -->|Risk Analysis| ML[98% Fraud Model]
-    Tool -->|Semantic Search| RAG[Vector Memory]
-    SQL --> Results[Observation]
-    ML --> Results
-    RAG --> Results
-    Results -->|Final Analysis| Final[Consolidated Report]
-    Final --> User
+sequenceDiagram
+    participant User
+    participant Guard["🛡️ GuardAgent (Router)"]
+    participant Mem["🧠 ConversationMemory"]
+    participant Knowledge["📚 KnowledgeAgent"]
+    participant Scanner["🔍 RiskScannerAgent"]
+    participant Profile["👤 ProfileAgent"]
+    participant Synthesis["🎭 SynthesisAgent"]
+    participant Tools["🛠️ Data Tools (RAG, ML, DB)"]
+
+    User->>Guard: "Investigate USER_1 risk vs trends"
+    Guard->>Guard: Classify Query (Deterministic Rules)
+    
+    alt is Synthesis Type
+        Guard->>Synthesis: Delegate Investigation
+        Synthesis->>Mem: Load Contextual History
+        Synthesis->>Tools: Parallel Data Retrieval (RAG & ML)
+        Synthesis->>Synthesis: Expert LLM Synthesis (Llama-3)
+        Synthesis-->>Guard: AgentResult
+    else is Specialist Type (e.g. Profile)
+        Guard->>Profile: Delegate Query
+        Profile->>Tools: Cached Data Lookup
+        Profile-->>Guard: AgentResult
+    end
+
+    Guard->>User: Professional Security Analysis
 ```
+
+#### 🧩 How They Work Together:
+1.  **The GuardAgent (Facade/Router):** Acts as the entry point. It uses fast, rule-based classification (Regex/Keywords) to determine if a query is a simple data lookup or a complex analytical request. This avoids unnecessary LLM latency for simple tasks.
+2.  **Specialized Specialists:**
+    *   **Scanner & Profile:** Handle single-source data retrieval instantly using pre-cached DataFrames (no LLM needed).
+    *   **KnowledgeAgent:** Performs RAG semantic search with **Multi-Stage Re-ranking** to provide expert-level policy/theory answers.
+3.  **The SynthesisAgent (The Brain):** When a query is complex (multi-user, comparative, or high-level), this agent takes over. It pulls data from *multiple* specialized tools and uses the **ConversationMemory** to maintain state across turns, providing a unified, cohesive intelligence report.
 
 ### 🔍 Multi-Stage RAG Architecture
 The RAG system features a **Multi-Stage Retrieval** pipeline over **1,400+ local documents**. It uses semantic search followed by a **Re-ranking Layer** that prioritizes high-confidence Expert Fraud Intelligence (100+ expert QA pairs) over raw transaction context.
