@@ -67,6 +67,7 @@ class UserRiskResponse(BaseModel):
 class AgentInvestigationRequest(BaseModel):
     """Request for an agentic investigation."""
     query: str = Field(..., example="Investigate risk for USER_001")
+    session_id: Optional[str] = Field(None, example="user_session_123")
 
 
 class AgentActionStep(BaseModel):
@@ -82,6 +83,8 @@ class AgentInvestigationResponse(BaseModel):
     answer: str
     actions: List[AgentActionStep]
     status: str
+    session_id: Optional[str] = None
+    trace: Optional[List[str]] = None
 
 
 # ---------------------------------------------------------------------------

@@ -183,7 +183,7 @@ async def agent_investigate(req: AgentInvestigationRequest):
     if not _agent:
         raise HTTPException(status_code=503, detail="GuardAgent not loaded.")
 
-    raw = _agent.analyze(req.query)
+    raw = _agent.analyze(req.query, session_id=req.session_id)
 
     actions = []
     for a in raw.get("actions", []):
@@ -200,6 +200,8 @@ async def agent_investigate(req: AgentInvestigationRequest):
         answer=raw.get("answer", "No answer produced."),
         actions=actions,
         status=raw.get("status", "unknown"),
+        session_id=raw.get("session_id"),
+        trace=raw.get("trace")
     )
 
 

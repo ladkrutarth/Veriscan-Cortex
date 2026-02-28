@@ -31,12 +31,13 @@ The name **Veriscan** represents the fusion of two core security principles:
 
 ## Visual Architecture
 
-### 🧠 Private AI Cortex (Specialized Multi-Agent System)
-Veriscan uses a **Multi-Agent Orchestrator** to handle complex security reasoning. The **GuardAgent** delegates tasks to specialized sub-agents:
-- **RAGAgent:** Semantic retrieval and expert synthesis of fraud intelligence.
-- **SynthesisAgent:** Generates comprehensive, multi-perspective security reports (300+ words).
-- **ComparisonAgent:** (Coming soon) Side-by-side behavioral analysis between multiple users.
-- **Enhanced Reasoning:** The agents provide detailed, professional 150-300+ word analytical reports with structured evidence.
+### 🧠 Private AI Cortex (Modular Multi-Agent System)
+Veriscan has been upgraded to a **Modular Clean Architecture**. The **GuardAgent** acts as a facade, delegating tasks to specialized, stateful agents:
+- **KnowledgeAgent:** Expert synthesis of fraud intelligence using multi-stage RAG.
+- **RiskScannerAgent:** Instant system-wide health checks and threat scanning.
+- **ProfileAgent:** Deep-dive investigation into specific user risk behaviors.
+- **SynthesisAgent:** Orchestrates complex reasoning, integrating memory and multiple tools into structured 300+ word reports.
+- **Stateful Memory:** All agents now support **ConversationMemory**, enabling context-aware follow-up questions within the same session.
 
 ```mermaid
 graph TD
@@ -54,8 +55,8 @@ graph TD
     Final --> User
 ```
 
-### 🔍 Local RAG Architecture
-The RAG system enables semantic retrieval over **1,400+ local documents**, combining Kaggle transactions, CFPB consumer complaints, and **Expert Fraud Intelligence Q&A** (100+ expert pairs).
+### 🔍 Multi-Stage RAG Architecture
+The RAG system features a **Multi-Stage Retrieval** pipeline over **1,400+ local documents**. It uses semantic search followed by a **Re-ranking Layer** that prioritizes high-confidence Expert Fraud Intelligence (100+ expert QA pairs) over raw transaction context.
 
 ```mermaid
 graph LR
@@ -147,13 +148,20 @@ Veriscan-Dashboard/
 ├── CONTRIBUTIONS.md                    # Team Breakdown
 ├── requirements.txt                    # Project Dependencies
 │
-├── models/                             # Intelligence & Modeling Layer
+├── agents/                             # 🤖 Modular Agent System (Clean Architecture)
+│   ├── base.py                         # Standardized Agent Interfaces
+│   ├── memory.py                       # 🧠 Stateful Conversation Memory
+│   ├── knowledge.py                    # RAG-Powered Knowledge Specialist
+│   ├── scanner.py                      # System-Wide Risk Specialist
+│   ├── profile.py                      # User Investigation Specialist
+│   └── synthesis.py                    # Multi-Tool Reasoning Specialist
+│
+├── models/                             # Intelligence & Core Logic Layer
 │   ├── local_llm.py                    # 🧠 MLX-LM Wrapper (Llama-3)
-│   ├── guard_agent_local.py            # 🤖 Hybrid GuardAgent (100% Accuracy)
-│   ├── rag_engine_local.py             # 🔍 Local RAG & Vector Store
+│   ├── guard_agent_local.py            # 🛡️ GuardAgent Facade (Multi-Agent Router)
+│   ├── rag_engine_local.py             # 🔍 RAG Engine (with Multi-Stage Re-ranking)
 │   ├── train_fraud_model.py            # 🚨 ML Training (RF 98%)
-│   ├── habit_model.py                  # 👤 User Behavior Profiling
-│   └── compare_ml_models.py            # 📊 Accuracy Benchmarking Suite
+│   └── hash_utils.py                   # Security Utilities
 │
 ├── scripts/                            # Data Pipeline
 │   ├── load_kaggle_data.py             # 📦 Kaggle Data Adapter
@@ -230,8 +238,8 @@ graph LR
 | `POST` | `/api/fraud/predict` | Single-transaction fraud prediction |
 | `GET` | `/api/fraud/high-risk?limit=N` | Top N riskiest transactions |
 | `GET` | `/api/user/{user_id}/risk` | User risk profile |
-| `POST` | `/api/agent/investigate` | Full agentic investigation |
-| `POST` | `/api/rag/query` | Semantic knowledge search |
+| `POST` | `/api/agent/investigate` | Full agentic investigation (Supports `session_id`) |
+| `POST` | `/api/rag/query` | Semantic knowledge search (Multi-stage re-ranking) |
 
 ---
 

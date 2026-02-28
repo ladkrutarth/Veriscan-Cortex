@@ -4,7 +4,7 @@ import chromadb
 import json
 from chromadb.utils import embedding_functions
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = PROJECT_ROOT / ".chroma_db_local"
@@ -105,28 +105,57 @@ class RAGEngineLocal:
         print(f"✅ Indexed {self._collection.count()} items locally.")
 
 
-    def query(self, text: str, n_results: int = 5) -> List[Dict]:
-        """Perform semantic search."""
-        results = self._collection.query(
-            query_texts=[text],
-            n_results=n_results
-        )
+    def query(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
+        """Semantic search with multi-stage re-ranking.
         
+        Prioritizes Expert QA data over raw transaction context if confidence is high.
+        """
+        if not self._collection:
+            return []
+
+        results = self._collection.query(
+            query_texts=[query_text],
+            n_results=n_results * 2  # Fetch double for re-ranking
+        )
+
+        documents = results['documents'][0]
+        metadatas = results['metadatas'][0]
+        distances = results['distances'][0]
+
+        # Convert distances to confidence (rough inverse sigmoid)
         parsed = []
-        if results['documents']:
-            for i in range(len(results['documents'][0])):
-                parsed.append({
-                    "text": results['documents'][0][i],
-                    "metadata": results['metadatas'][0][i],
-                    "distance": results['distances'][0][i],
-                    "confidence": round(1.0 / (1.0 + results['distances'][0][i]), 3)
-                })
-        return parsed
+        for doc, meta, dist in zip(documents, metadatas, distances):
+            conf = max(0, 1 - (dist / 1.5))
+            parsed.append({
+                "text": doc,
+                "metadata": meta,
+                "confidence": conf,
+                "type": meta.get("type", "unknown")
+            })
+
+        # Multi-stage Re-ranking: Move Expert QA to the top if confidence > 40%
+        expert_qa = [r for r in parsed if r["type"] == "expert_qa" and r["confidence"] > 0.4]
+        other_data = [r for r in parsed if r not in expert_qa]
+
+        # Sort within groups by confidence
+        expert_qa.sort(key=lambda x: x["confidence"], reverse=True)
+        other_data.sort(key=lambda x: x["confidence"], reverse=True)
+
+        merged = expert_qa + other_data
+        return merged[:n_results]
 
     def get_context_for_query(self, query_text: str) -> str:
-        """Helper to get a flat string of context for the LLM."""
-        results = self.query(query_text)
-        return "\n".join([r["text"] for r in results])
+        """Returns a formatted context string for the LLM."""
+        results = self.query(query_text, n_results=3)
+        if not results:
+            return "No relevant context found."
+        
+        context = []
+        for i, res in enumerate(results, 1):
+            source = res["type"].upper()
+            context.append(f"[{source} {i}]: {res['text']}")
+        
+        return "\n\n".join(context)
 
 if __name__ == "__main__":
     engine = RAGEngineLocal()
