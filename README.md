@@ -33,6 +33,7 @@ The name **Veriscan** represents the fusion of two core security principles:
 
 ### 🧠 Private AI Cortex (Agentic AI)
 The **GuardAgent** leverages a local Llama-3 model for autonomous investigations, using a **Hybrid Intent Router** to choose between deterministic keyword matching and deep LLM reasoning.
+- **Enhanced Reasoning:** The agent provides detailed, professional 50-100+ word analytical reports based on retrieved evidence.
 
 ```mermaid
 graph TD
@@ -230,7 +231,7 @@ streamlit run streamlit_app.py
 |--------|--------|
 | **Environment** | Python 3.9+, dependencies in `requirements.txt` |
 | **Model Versioning** | `fraud_model_rf.joblib` + `encoders.joblib` (deterministic `random_state=42`) |
-| **Dataset** | Kaggle `kartik2112/fraud-detection` (download separately) |
+| **Dataset** | Kaggle `kartik2112/fraud-detection` (download separately). Note: The preparation script now utilizes **5x Fraud Oversampling** to ensure sufficient risk events scale for downstream analytics. |
 | **Vector Store** | ChromaDB (rebuilt on demand via `rag_engine_local.py`) |
 | **Config** | `scripts/ingest_config.yaml` (supports env var overrides) |
 | **Secrets** | All credentials via environment variables; `.env` in `.gitignore` |

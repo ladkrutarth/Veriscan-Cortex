@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INPUT_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "fraudTrain.csv"
 OUTPUT_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "processed_fraud_train.csv"
 
-def prepare_data(sample_size=50000):
+def prepare_data(sample_size=300000):
     print(f"Reading {INPUT_PATH}...")
     # Read specified columns only
     cols = [
@@ -28,7 +28,11 @@ def prepare_data(sample_size=50000):
     print(f"Fraud count: {len(fraud_df)}")
     print(f"Legit count: {len(legit_df)}")
     
-    # Sample to requested size while keeping as much fraud as possible
+    # Oversample fraud to increase cases in database transition process
+    fraud_df = pd.concat([fraud_df] * 5, ignore_index=True)
+    print(f"Oversampled Fraud count: {len(fraud_df)}")
+    
+    # Sample to requested size while keeping as much oversampled fraud as possible
     n_fraud = len(fraud_df)
     n_legit = sample_size - n_fraud
     

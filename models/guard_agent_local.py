@@ -126,7 +126,8 @@ Thought: This is a request for an explanation. I must query the market intellige
 
 ## Final Rule
 - NEVER provide a final answer until you have called at least one tool.
-- ALWAYS output the JSON block for tool calls.
+- ALWAYS output the JSON block for tool calls if you need more info.
+- YOUR FINAL SUMMARY MUST BE AT LEAST 50-100 WORDS. Detail your findings, risks, and recommended actions as a professional security analyst.
 """
 
 class LocalGuardAgent:
@@ -199,42 +200,18 @@ class LocalGuardAgent:
                 result = TOOL_REGISTRY[tool_name]["fn"](**args)
                 result_str = json.dumps(result, indent=2)
                 actions_log.append({"step": 0, "tool": tool_name, "args": args, "result": result_str[:400] + "..."})
-
-                # Format a clean plain-text report without invoking the LLM
-                if tool_name == "query_rag":
-                    answer = f"**Knowledge Base Result:**\n\n{result}"
-                elif tool_name == "get_user_risk_profile":
-                    found = result.get("found", False)
-                    if found:
-                        answer = (
-                            f"**User Risk Profile: {args.get('user_id')}**\n\n"
-                            f"- Security Level: `{result.get('security_level', 'N/A')}`\n"
-                            f"- Average Risk Score: `{result.get('avg_risk', 'N/A')}`\n"
-                            f"- High Risk Transactions: `{result.get('high_risk_count', 'N/A')}`\n"
-                            f"- Total Transactions: `{result.get('txn_count', 'N/A')}`\n"
-                            f"- Risk Distribution: `{result.get('risk_distribution', 'N/A')}`"
-                        )
-                    else:
-                        answer = f"⚠️ User `{args.get('user_id')}` was not found in the database."
-                else:
-                    rows = result if isinstance(result, list) else [result]
-                    lines = [f"**Top {len(rows)} High Risk Transactions:**\n"]
-                    for r in rows[:5]:
-                        lines.append(
-                            f"- User: `{r.get('USER_ID','?')}` | Score: `{r.get('COMBINED_RISK_SCORE','?'):.2f}` | Level: `{r.get('RISK_LEVEL','?')}`"
-                        )
-                    answer = "\n".join(lines)
-
-                return {
-                    "answer": answer,
-                    "actions": actions_log,
-                    "status": "success"
-                }
+                current_context += f"\nInitial Tool Result ({tool_name}): {result_str}"
+                # We continue to the LLM loop to get a rich 50-100 word summary
 
         # ── Steps 1-5: LLM Reasoning Loop (Fallback for unknown queries) ──
         for i in range(5):
-            full_prompt = f"{prompt}\n\nExisting Context:\n{current_context}\n\nDecision:"
-            response = self.llm.generate(full_prompt, max_tokens=256)
+            # Inject a specific instruction if a tool was already called by the router
+            extra_inst = ""
+            if i == 0 and routed_call:
+                extra_inst = "\n\nNOTE: A tool has already been executed for this query. Use the 'Initial Tool Result' below to formulate your response. DO NOT call the same tool again unless you need different data."
+
+            full_prompt = f"{prompt}{extra_inst}\n\nExisting Context:\n{current_context}\n\nDecision:"
+            response = self.llm.generate(full_prompt, max_tokens=512) # Increased for longer summaries
             
             # Try to parse a tool call from LLM output
             json_str = self._extract_json(response)

@@ -657,7 +657,7 @@ def render_agent_tab():
             
             # Show steps/history
             if result.get("actions"):
-                with st.expander("🔍 Trace: Agent Reasoning Steps"):
+                with st.expander("🔍 Trace: Agent Reasoning Steps", expanded=True):
                     for a in result["actions"]:
                         st.markdown(f"**Step {a['step']}:** Calling `{a['tool']}` with args `{a['args']}`")
                         if 'result' in a:
