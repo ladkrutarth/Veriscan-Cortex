@@ -1,4 +1,4 @@
-# Veriscan — Advanced Fraud Detection & Private AI Intelligence Dashboard
+# Veriscan-Cortex — Advanced Fraud Intelligence & Private Multi-Agent Dashboard
 
 > **Course:** CS 5588 — Data Science Capstone | **Date:** February 2026
 
