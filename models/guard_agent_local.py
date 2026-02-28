@@ -123,29 +123,79 @@ TOOL_REGISTRY = {
 }
 
 # ---------------------------------------------------------------------------
-# SUB-AGENT: RAG Knowledge Agent (NO LLM — instant)
+# SUB-AGENT: RAG Knowledge Agent (routes to SynthesisAgent for expert answers)
 # ---------------------------------------------------------------------------
 class RAGAgent:
-    """Handles policy/knowledge queries directly via vector search."""
+    """Handles policy/knowledge queries by routing through SynthesisAgent for LLM synthesis."""
+
+    def __init__(self, llm: LocalLLM):
+        self.llm = llm
 
     def run(self, query: str) -> Dict[str, Any]:
-        result = tool_query_rag(query)
-        actions = [{"step": 0, "tool": "query_rag", "args": {"question": query}, "result": result[:500]}]
-
-        # Build a professional summary from the RAG results
+        """Route knowledge queries through LLM synthesis for expert-level answers."""
+        # Get RAG context
         rag = _get_rag()
-        results = rag.query(query, n_results=3)
-        if results:
-            top_conf = results[0]["confidence"]
-            summary_lines = [f"**Knowledge Base Search Results** (Top match: {top_conf:.0%} confidence)\n"]
-            for i, r in enumerate(results, 1):
-                summary_lines.append(f"**Finding {i}** ({r['confidence']:.0%} relevance):\n{r['text'][:300]}\n")
-            summary_lines.append(f"\n**Analysis:** Based on {len(results)} retrieved documents, the knowledge base contains relevant information about this topic. The highest-confidence match ({top_conf:.0%}) provides direct evidence addressing the query.")
-            answer = "\n".join(summary_lines)
-        else:
-            answer = "No relevant documents found in the knowledge base for this query."
+        results = rag.query(query, n_results=5)
+        raw_context = "\n".join([r["text"] for r in results]) if results else "No documents found."
+        actions = [{"step": 0, "tool": "query_rag", "args": {"question": query}, "result": raw_context[:500]}]
+
+        # Use LLM to synthesize expert answer
+        prompt = f"""You are a Senior Fraud Intelligence Analyst. Answer this question in 150-200 words.
+
+Question: {query}
+
+Evidence from CFPB database and fraud intelligence:
+{raw_context[:1500]}
+
+Write a professional, detailed analysis. Include:
+- Clear definitions for any fraud terms mentioned
+- Specific references to data (companies, states, amounts from the evidence)
+- How Veriscan's ML detection capabilities relate to this topic
+- A concrete recommendation at the end
+
+Analysis:"""
+
+        answer = self.llm.generate(prompt, max_tokens=300)
+        answer = re.sub(r'<\|.*?\|>', '', answer).strip()
+        for artifact in ["assistant", "user", "Question:", "Context:", "Evidence:", "Analysis:"]:
+            answer = answer.replace(artifact, "")
+        answer = answer.strip()
+
+        if not answer or len(answer) < 30:
+            # Structured fallback with query-aware analysis
+            if results:
+                top_conf = results[0]["confidence"]
+                metadata = results[0].get("metadata", {})
+                states = set()
+                companies = set()
+                for r in results:
+                    m = r.get("metadata", {})
+                    if m.get("state"): states.add(m["state"])
+                    if m.get("company"): companies.add(m["company"])
+
+                answer = f"""**🔍 Knowledge Base Intelligence Report**
+
+**Query:** {query}
+
+**Evidence Retrieved:** {len(results)} documents (Top confidence: {top_conf:.0%})
+
+**Key Sources:**
+"""
+                for i, r in enumerate(results[:3], 1):
+                    m = r.get("metadata", {})
+                    company = m.get("company", "Unknown")
+                    state = m.get("state", "N/A")
+                    answer += f"\n{i}. **{company}** (State: {state}, Relevance: {r['confidence']:.0%})\n   {r['text'][:200]}...\n"
+
+                if companies:
+                    answer += f"\n**Entities Involved:** {', '.join(list(companies)[:5])}"
+                if states:
+                    answer += f"\n**Geographic Coverage:** {', '.join(list(states)[:5])}"
+                answer += f"\n\n**Recommendation:** Based on {len(results)} evidence documents, further investigation into the identified patterns is recommended. The data suggests active monitoring of identified entities and geographic regions."
 
         return {"answer": answer, "actions": actions, "status": "success"}
+
+
 
 # ---------------------------------------------------------------------------
 # SUB-AGENT: Risk Scanner (NO LLM — instant)
@@ -264,46 +314,74 @@ class SynthesisAgent:
         # Execute ALL relevant tools in sequence (deterministic, no LLM for tool selection)
         # 1. Check for user IDs
         user_matches = re.findall(r'USER[_\s]?(\d+)', query.upper())
-        for uid in user_matches[:2]:  # Max 2 users
+        for uid in user_matches[:3]:  # Max 3 users
             user_id = f"USER_{uid}"
             result = tool_get_user_risk_profile(user_id)
-            actions.append({"step": len(actions), "tool": "get_user_risk_profile", "args": {"user_id": user_id}, "result": json.dumps(result, indent=2)[:300]})
+            actions.append({"step": len(actions), "tool": "get_user_risk_profile", "args": {"user_id": user_id}, "result": json.dumps(result, indent=2)[:400]})
             context_parts.append(f"User Profile ({user_id}): {json.dumps(result)}")
 
-        # 2. Get high-risk transactions if relevant
+        # 2. Get high-risk transactions
         q = query.upper()
-        if any(kw in q for kw in ["RISK", "DANGEROUS", "THREAT", "FRAUD", "TRANSACTION", "SCAN", "REPORT", "TOP"]):
-            txns = tool_get_high_risk_transactions(limit=5)
-            actions.append({"step": len(actions), "tool": "get_high_risk_transactions", "args": {"limit": 5}, "result": json.dumps(txns[:2], indent=2)[:300]})
-            context_parts.append(f"Top 5 High-Risk Transactions: {json.dumps(txns)}")
+        if any(kw in q for kw in ["RISK", "DANGEROUS", "THREAT", "FRAUD", "TRANSACTION", "SCAN", "REPORT", "TOP", "MERCHANT", "COMMON", "BASED ON", "PREDICTIVE", "ANALYTICS", "HEALTH", "STATE"]):
+            txns = tool_get_high_risk_transactions(limit=10)
+            actions.append({"step": len(actions), "tool": "get_high_risk_transactions", "args": {"limit": 10}, "result": json.dumps(txns[:3], indent=2)[:400]})
+            # Build merchant/category summary
+            merchants = {}
+            categories = {}
+            for t in txns:
+                m = t.get("MERCHANT", "Unknown")
+                c = t.get("CATEGORY", "Unknown")
+                merchants[m] = merchants.get(m, 0) + 1
+                categories[c] = categories.get(c, 0) + 1
+            context_parts.append(f"Top 10 High-Risk Transactions: {json.dumps(txns)}")
+            context_parts.append(f"Merchant Frequency in High-Risk: {json.dumps(merchants)}")
+            context_parts.append(f"Category Frequency in High-Risk: {json.dumps(categories)}")
 
-        # 3. Get RAG context if relevant
-        if any(kw in q for kw in ["EXPLAIN", "WHAT", "HOW", "WHY", "POLICY", "TREND", "RAG", "CFPB", "KNOWLEDGE", "INTEL", "MARKET"]):
-            rag_result = tool_query_rag(query)
-            actions.append({"step": len(actions), "tool": "query_rag", "args": {"question": query}, "result": rag_result[:300]})
-            context_parts.append(f"Knowledge Base Context: {rag_result}")
+        # 3. Get RAG context (always for synthesis queries)
+        rag_result = tool_query_rag(query)
+        actions.append({"step": len(actions), "tool": "query_rag", "args": {"question": query}, "result": rag_result[:400]})
+        context_parts.append(f"Knowledge Base Intel: {rag_result}")
 
-        # 4. ONE LLM call to synthesize everything
-        combined_context = "\n\n".join(context_parts) if context_parts else "No tool results available."
+        # 4. ONE LLM call to synthesize — with expert prompt
+        combined_context = "\n\n".join(context_parts)
 
-        synthesis_prompt = f"""You are the Veriscan GuardAgent. Synthesize the following tool results into a professional security report.
+        synthesis_prompt = f"""You are a Senior Financial Crime Investigator and Compliance Officer at Veriscan, a leading fraud detection platform.
 
-Query: {query}
+The analyst asked: "{query}"
 
-Tool Results:
-{combined_context}
+Here is all the intelligence gathered from our multi-agent system:
+{combined_context[:3000]}
 
-Write a detailed 100-150 word security analysis. Include: findings, risk assessment, and recommended actions. Be specific with data from the tool results."""
+INSTRUCTIONS:
+- Write a comprehensive 200-300 word professional security analysis.
+- Structure your response with clear sections: Findings, Risk Assessment, and Recommendations.
+- Reference SPECIFIC data: user IDs, transaction IDs, risk scores, merchant names, categories, percentages.
+- If comparing users, create a side-by-side comparison with specific metrics.
+- If analyzing merchants, explain WHY certain merchants are targeted (high-value categories, online vs POS, geographic patterns).
+- If asked about compliance/policy, cite CFPB regulations and explain how Veriscan's scoring helps.
+- If asked about technical concepts (Z-Scores, velocity, etc.), give a textbook definition AND practical application.
+- End with 2-3 specific, actionable recommendations.
+- Use professional security analyst tone throughout.
 
-        answer = self.llm.generate(synthesis_prompt, max_tokens=256)
-        # Clean up
-        answer = re.sub(r'<\|.*?\|>', '', answer)
-        answer = answer.replace("assistant", "").replace("user", "").strip()
+Your detailed investigation report:"""
 
-        if not answer or len(answer) < 20:
-            answer = f"Investigation complete. Analyzed {len(actions)} data sources for query: '{query}'. Results are shown in the reasoning trace above."
+        answer = self.llm.generate(synthesis_prompt, max_tokens=350)
+        answer = re.sub(r'<\|.*?\|>', '', answer).replace("assistant", "").replace("user", "").strip()
+
+        if not answer or len(answer) < 30:
+            answer = self._build_fallback_report(query, actions, context_parts)
 
         return {"answer": answer, "actions": actions, "status": "success"}
+
+    def _build_fallback_report(self, query: str, actions: list, context_parts: list) -> str:
+        """Generate a structured report if LLM fails."""
+        report = f"**🛡️ Multi-Source Investigation Report**\n\n"
+        report += f"**Query:** {query}\n\n"
+        report += f"**Data Sources Analyzed:** {len(actions)}\n\n"
+        for a in actions:
+            report += f"- **{a['tool']}**: {a['result'][:200]}...\n\n"
+        report += "**Recommendation:** Review the tool results above for detailed findings. The multi-agent system gathered intelligence from user profiles, transaction databases, and the knowledge base."
+        return report
 
 # ---------------------------------------------------------------------------
 # MASTER AGENT: Multi-Agent Router
@@ -321,7 +399,7 @@ class LocalGuardAgent:
 
     def __init__(self):
         self.llm = LocalLLM()
-        self.rag_agent = RAGAgent()
+        self.rag_agent = RAGAgent(self.llm)
         self.risk_agent = RiskScanAgent()
         self.user_agent = UserProfileAgent()
         self.synthesis_agent = SynthesisAgent(self.llm)
@@ -331,7 +409,13 @@ class LocalGuardAgent:
         q = query.upper()
 
         # Check for user IDs
-        has_user = bool(re.search(r'USER[_\s]?\d+', q))
+        user_ids = re.findall(r'USER[_\s]?\d+', q)
+        has_user = len(user_ids) > 0
+        has_multi_user = len(user_ids) >= 2
+
+        # Multi-user comparison always goes to synthesis
+        if has_multi_user:
+            return "synthesis"
 
         # Check for risk scan keywords
         is_risk_scan = any(kw in q for kw in [
@@ -339,21 +423,24 @@ class LocalGuardAgent:
             "RISKIEST", "SYSTEM SCAN", "STATE OF", "FULL REPORT"
         ])
 
-        # Check for knowledge/RAG keywords
+        # Check for knowledge/RAG keywords — BROAD matching
         is_knowledge = any(kw in q for kw in [
             "WHAT IS", "WHAT ARE", "EXPLAIN", "HOW TO", "DEFINE", "DESCRIBE",
             "TREND", "CFPB", "DISPUTE", "IDENTITY THEFT", "VELOCITY",
             "LATE FEE", "REWARD", "COMPLAINT", "PHISHING", "SCAM",
             "BILLING", "CREDIT REPORT", "BALANCE TRANSFER", "UNAUTHORIZED",
-            "INTEREST RATE", "CUSTOMER SERVICE"
+            "INTEREST RATE", "CUSTOMER SERVICE", "SYNTHETIC", "TRUE NAME",
+            "Z-SCORE", "COMPLIANCE", "REGULATION", "POLICY", "SEARCH",
+            "DIFFERENCE", "HARDER", "RESOLUTION", "TIMELINE",
+            "COMMON", "CONSUMER", "PROCEDURE", "STANDARD"
         ])
 
-        # Complex queries need multiple tools (has user + scan, or user + knowledge)
+        # Complex queries need multiple tools
         complexity = int(has_user) + int(is_risk_scan) + int(is_knowledge)
         if complexity >= 2:
             return "synthesis"
 
-        # Simple single-purpose queries
+        # Single-purpose queries
         if has_user and not is_risk_scan and not is_knowledge:
             return "user_profile"
         if is_risk_scan and not has_user:

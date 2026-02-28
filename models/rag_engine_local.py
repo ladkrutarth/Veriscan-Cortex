@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import chromadb
+import json
 from chromadb.utils import embedding_functions
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -30,7 +31,7 @@ class RAGEngineLocal:
         print(f"✅ Local RAG Engine initialized with {self._collection.count()} documents.")
 
     def index_data(self, force: bool = False):
-        """Load and index transaction and complaint data."""
+        """Load and index transaction, complaint, and expert QA data."""
         if self._collection.count() > 0 and not force:
             return
 
@@ -49,7 +50,7 @@ class RAGEngineLocal:
                 ids.append(f"txn_{i}")
             self._collection.add(documents=documents, metadatas=metadatas, ids=ids)
 
-        # 2. Index CFPB Complaints (the actual knowledge base)
+        # 2. Index CFPB Complaints (the contextual knowledge base)
         cfpb_path = PROJECT_ROOT / "dataset" / "csv_data" / "cfpb_credit_card.csv"
         if cfpb_path.exists():
             print(f"Indexing CFPB complaints from {cfpb_path}...")
@@ -75,8 +76,34 @@ class RAGEngineLocal:
                     metadatas=metadatas[j:j+batch_size],
                     ids=ids[j:j+batch_size]
                 )
+
+        # 3. Index Fraud Expert Q&A (the expert intelligence base)
+        qa_path = PROJECT_ROOT / "dataset" / "csv_data" / "fraud_detection_qa_dataset.json"
+        if qa_path.exists():
+            print(f"Indexing expert fraud intelligence from {qa_path}...")
+            with open(qa_path, 'r') as f:
+                qa_data = json.load(f)
+            
+            documents, metadatas, ids = [], [], []
+            for qa in qa_data.get("qa_pairs", []):
+                category = qa.get("category", "General")
+                question = qa.get("question", "")
+                answer = qa.get("answer", "")
+                
+                text = f"Expert Intelligence ({category}): {question} - {answer}"
+                documents.append(text)
+                metadatas.append({
+                    "type": "expert_qa", 
+                    "category": category, 
+                    "difficulty": qa.get("difficulty", "N/A")
+                })
+                ids.append(f"qa_{qa.get('id', 'unknown')}")
+            
+            if documents:
+                self._collection.add(documents=documents, metadatas=metadatas, ids=ids)
             
         print(f"✅ Indexed {self._collection.count()} items locally.")
+
 
     def query(self, text: str, n_results: int = 5) -> List[Dict]:
         """Perform semantic search."""

@@ -31,9 +31,12 @@ The name **Veriscan** represents the fusion of two core security principles:
 
 ## Visual Architecture
 
-### 🧠 Private AI Cortex (Agentic AI)
-The **GuardAgent** leverages a local Llama-3 model for autonomous investigations, using a **Hybrid Intent Router** to choose between deterministic keyword matching and deep LLM reasoning.
-- **Enhanced Reasoning:** The agent provides detailed, professional 50-100+ word analytical reports based on retrieved evidence.
+### 🧠 Private AI Cortex (Specialized Multi-Agent System)
+Veriscan uses a **Multi-Agent Orchestrator** to handle complex security reasoning. The **GuardAgent** delegates tasks to specialized sub-agents:
+- **RAGAgent:** Semantic retrieval and expert synthesis of fraud intelligence.
+- **SynthesisAgent:** Generates comprehensive, multi-perspective security reports (300+ words).
+- **ComparisonAgent:** (Coming soon) Side-by-side behavioral analysis between multiple users.
+- **Enhanced Reasoning:** The agents provide detailed, professional 150-300+ word analytical reports with structured evidence.
 
 ```mermaid
 graph TD
@@ -52,7 +55,7 @@ graph TD
 ```
 
 ### 🔍 Local RAG Architecture
-The RAG system enables semantic retrieval over 1,300+ local documents (Kaggle transactions + CFPB complaints) without sending data to external APIs.
+The RAG system enables semantic retrieval over **1,400+ local documents**, combining Kaggle transactions, CFPB consumer complaints, and **Expert Fraud Intelligence Q&A** (100+ expert pairs).
 
 ```mermaid
 graph LR
@@ -75,6 +78,7 @@ graph LR
 
     TXN --> Embed
     CFPB --> Embed
+    EXPERT[Expert Fraud QA] --> Embed
     Embed --> Chroma
     Query --> Search
     Chroma --> Search
@@ -135,10 +139,13 @@ Veriscan features a cutting-edge, local-first AI stack designed for maximum data
 
 ```
 Veriscan-Dashboard/
-├── streamlit_app.py                    # Main 5-Tab Dashboard UI
-├── Phase-2-Report.md                   # Phase 2 Submission Report
-├── CONTRIBUTIONS.md                    # Team Contribution Breakdown
-├── requirements.txt                    # Python Dependencies
+├── streamlit_app.py                    # Aggregator UI (Consumes Microservices)
+├── api/                                # ⚡ FastAPI Microservices Layer
+│   ├── main.py                         # REST API Router & Endpoints
+│   └── schemas.py                      # Pydantic Data Models
+├── Phase-2-Report.md                   # Technical Report
+├── CONTRIBUTIONS.md                    # Team Breakdown
+├── requirements.txt                    # Project Dependencies
 │
 ├── models/                             # Intelligence & Modeling Layer
 │   ├── local_llm.py                    # 🧠 MLX-LM Wrapper (Llama-3)
@@ -161,7 +168,8 @@ Veriscan-Dashboard/
 ├── dataset/csv_data/                   # Data Store (Sampled for GitHub)
 │   ├── fraudTrain_sampled.csv          # Sampled Training Set
 │   ├── fraudTest_sampled.csv           # Sampled Test Set
-│   ├── cfpb_credit_card_sampled.csv    # Sampled CFPB Complaints
+│   ├── cfpb_credit_card.csv            # CFPB Complaints Base
+│   ├── fraud_detection_qa_dataset.json  # 💡 Expert Intelligence Dataset
 │   └── pipeline_logs.csv               # Pipeline Audit Trail
 │
 └── docs/
