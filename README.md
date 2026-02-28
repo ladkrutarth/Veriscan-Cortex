@@ -6,7 +6,6 @@
 
 ## 📋 Table of Contents
 - [Project Overview](#project-overview)
-- [AI Accuracy Scorecard](#ai-accuracy-scorecard)
 - [System Architecture](#system-architecture)
 - [Visual Architecture](#visual-architecture)
 - [Local AI Intelligence](#local-ai-intelligence)
