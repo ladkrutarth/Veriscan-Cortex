@@ -35,14 +35,14 @@ Veriscan-Cortex uses a **Deterministic Router** to ensure maximum speed and a **
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Guard["🛡️ GuardAgent (Router)"]
-    participant Mem["🧠 ConversationMemory"]
-    participant Knowledge["📚 KnowledgeAgent"]
-    participant Scanner["🔍 RiskScannerAgent"]
-    participant Profile["👤 ProfileAgent"]
-    participant Synthesis["🎭 SynthesisAgent"]
-    participant Tools["🛠️ Data Tools (RAG, ML, DB)"]
+    participant User as "👤 User"
+    participant Guard as "🛡️ GuardAgent (Router)"
+    participant Mem as "🧠 ConversationMemory"
+    participant Knowledge as "📚 KnowledgeAgent"
+    participant Scanner as "🔍 RiskScannerAgent"
+    participant Profile as "👤 ProfileAgent"
+    participant Synthesis as "🎭 SynthesisAgent"
+    participant Tools as "🛠️ Data Tools"
 
     User->>Guard: "Investigate USER_1 risk vs trends"
     Guard->>Guard: Classify Query (Deterministic Rules)
