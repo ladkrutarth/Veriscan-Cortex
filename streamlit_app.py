@@ -14,9 +14,10 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import joblib
-# Local AI Components
-from models.guard_agent_local import LocalGuardAgent
-from models.rag_engine_local import RAGEngineLocal
+import requests
+
+# API Backend URL
+API_BASE_URL = os.environ.get("VERISCAN_API_URL", "http://localhost:8000")
 
 # ---------------------------------------------------------------------------
 # Project paths
@@ -281,15 +282,20 @@ def load_cfpb_data():
         # Using subset for quick performance
         return pd.read_csv(CFPB_PATH, nrows=10000)
     return pd.DataFrame()
-@st.cache_resource
-def get_local_agent():
-    return LocalGuardAgent()
+
+def api_available() -> bool:
+    """Check if the FastAPI backend is running."""
+    try:
+        r = requests.get(f"{API_BASE_URL}/api/health", timeout=2)
+        return r.status_code == 200
+    except Exception:
+        return False
 
 @st.cache_resource
-def get_rag_engine():
-    engine = RAGEngineLocal()
-    engine.index_data()
-    return engine
+def get_local_llm():
+    """Lightweight LLM loader for Auth quiz generation only."""
+    from models.local_llm import LocalLLM
+    return LocalLLM()
 
 # ---------------------------------------------------------------------------
 # Aesthetics & Accessibility Helpers
@@ -491,8 +497,8 @@ D) [Option Text]
 Correct: [Letter]
 [End Question]
 """
-                agent = get_local_agent()
-                raw_q_bulk = agent.llm.generate(prompt, max_tokens=500)
+                agent = get_local_llm()
+                raw_q_bulk = agent.generate(prompt, max_tokens=500)
                 
                 # Resilient bulk parser
                 blocks = re.split(r'\[Question \d\]', raw_q_bulk)
@@ -624,18 +630,24 @@ def render_cfpb_tab(df):
     st.markdown("#### 💬 Ask Local RAG")
     query = st.text_input("Search context for fraud patterns or policy details:", placeholder="e.g. Find high-value travel anomalies...")
     if st.button("Query Knowledge Base") and query:
-        with st.spinner("Searching local vector store..."):
-            engine = get_rag_engine()
-            results = engine.query(query)
-            if results:
-                for r in results:
-                    st.markdown(f"""
-                    <div class='rag-answer' style='margin-bottom:1rem; border-color: rgba(99, 102, 241, 0.3);'>
-                        <strong>[{r['confidence']:.1%} Relevance]</strong><br>{r['text']}
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.warning("No relevant context found.")
+        with st.spinner("Querying RAG via API..."):
+            try:
+                resp = requests.post(f"{API_BASE_URL}/api/rag/query", json={"query": query, "n_results": 5}, timeout=30)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data["results"]:
+                        for r in data["results"]:
+                            st.markdown(f"""
+                            <div class='rag-answer' style='margin-bottom:1rem; border-color: rgba(99, 102, 241, 0.3);'>
+                                <strong>[{r['confidence']:.1%} Relevance]</strong><br>{r['text']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                    else:
+                        st.warning("No relevant context found.")
+                else:
+                    st.error(f"API Error: {resp.status_code}")
+            except requests.ConnectionError:
+                st.error("🔴 Cannot reach API backend. Please start it with: `uvicorn api.main:app --port 8000`")
 
 
 
@@ -644,30 +656,36 @@ def render_cfpb_tab(df):
 # ---------------------------------------------------------------------------
 def render_agent_tab():
     st.markdown("### 🤖 Agentic Security Analyst")
-    st.info("The GuardAgent is an autonomous analyst that uses tool-based reasoning to investigate systemic risks. No external API used.")
+    st.info("The GuardAgent is an autonomous analyst powered by a FastAPI microservice. It uses tool-based reasoning to investigate systemic risks.")
 
     user_query = st.text_area("Investigation Request:", 
                              placeholder="e.g. Investigate risk for USER_0. What are the top 3 high-risk transactions across the system?",
                              height=150)
     
     if st.button("Initiate Investigation") and user_query:
-        with st.spinner("Agent is reasoning and invoking tools Locally..."):
-            agent = get_local_agent()
-            result = agent.analyze(user_query)
-            
-            # Show steps/history
-            if result.get("actions"):
-                with st.expander("🔍 Trace: Agent Reasoning Steps", expanded=True):
-                    for a in result["actions"]:
-                        st.markdown(f"**Step {a['step']}:** Calling `{a['tool']}` with args `{a['args']}`")
-                        if 'result' in a:
-                            st.code(a['result'], language="json")
-            
-            # Show final report
-            st.markdown("<div class='rag-answer'>", unsafe_allow_html=True)
-            st.markdown("#### 🛡️ GuardAgent Report")
-            st.markdown(result["answer"])
-            st.markdown("</div>", unsafe_allow_html=True)
+        with st.spinner("Agent is reasoning via API backend..."):
+            try:
+                resp = requests.post(f"{API_BASE_URL}/api/agent/investigate", json={"query": user_query}, timeout=120)
+                if resp.status_code == 200:
+                    result = resp.json()
+                    
+                    # Show steps/history
+                    if result.get("actions"):
+                        with st.expander("🔍 Trace: Agent Reasoning Steps", expanded=True):
+                            for a in result["actions"]:
+                                st.markdown(f"**Step {a['step']}:** Calling `{a['tool']}` with args `{a['args']}`")
+                                if a.get('result'):
+                                    st.code(a['result'], language="json")
+                    
+                    # Show final report
+                    st.markdown("<div class='rag-answer'>", unsafe_allow_html=True)
+                    st.markdown("#### 🛡️ GuardAgent Report")
+                    st.markdown(result["answer"])
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.error(f"API Error: {resp.status_code} — {resp.text}")
+            except requests.ConnectionError:
+                st.error("🔴 Cannot reach API backend. Please start it with: `uvicorn api.main:app --port 8000`")
 
 # ---------------------------------------------------------------------------
 # Main Execution

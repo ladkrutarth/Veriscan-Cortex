@@ -1,0 +1,119 @@
+"""
+Veriscan — FastAPI Pydantic Schemas
+Request/Response models for all REST endpoints.
+"""
+
+from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
+
+# ---------------------------------------------------------------------------
+# Fraud Prediction
+# ---------------------------------------------------------------------------
+
+class TransactionInput(BaseModel):
+    """Input for single-transaction fraud prediction."""
+    category: str = Field(..., example="shopping_net")
+    amt: float = Field(..., example=499.99)
+    gender: str = Field(..., example="M")
+    state: str = Field(..., example="CA")
+    merchant: str = Field(..., example="fraud_Kirlin and Sons")
+    hour: int = Field(..., ge=0, le=23, example=14)
+    day_of_week: int = Field(..., ge=0, le=6, example=3)
+
+
+class FraudPredictionResponse(BaseModel):
+    """Response from the fraud prediction endpoint."""
+    risk_score: float
+    risk_level: str
+    feature_importances: Dict[str, float]
+
+
+# ---------------------------------------------------------------------------
+# High-Risk Transactions
+# ---------------------------------------------------------------------------
+
+class HighRiskTransaction(BaseModel):
+    """A single high-risk transaction record."""
+    data: Dict[str, Any]
+
+
+class HighRiskTransactionsResponse(BaseModel):
+    """Response from the high-risk transactions endpoint."""
+    count: int
+    transactions: List[Dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# User Risk Profile
+# ---------------------------------------------------------------------------
+
+class UserRiskResponse(BaseModel):
+    """Response from the user risk profile endpoint."""
+    user_id: str
+    found: bool
+    security_level: Optional[str] = None
+    avg_risk: Optional[float] = None
+    high_risk_count: Optional[int] = None
+    txn_count: Optional[int] = None
+    avg_combined_score: Optional[float] = None
+    risk_distribution: Optional[Dict[str, int]] = None
+
+
+# ---------------------------------------------------------------------------
+# Agent Investigation
+# ---------------------------------------------------------------------------
+
+class AgentInvestigationRequest(BaseModel):
+    """Request for an agentic investigation."""
+    query: str = Field(..., example="Investigate risk for USER_001")
+
+
+class AgentActionStep(BaseModel):
+    """A single step in the agent's reasoning trace."""
+    step: int
+    tool: str
+    args: Dict[str, Any]
+    result: Optional[str] = None
+
+
+class AgentInvestigationResponse(BaseModel):
+    """Response from the agent investigation endpoint."""
+    answer: str
+    actions: List[AgentActionStep]
+    status: str
+
+
+# ---------------------------------------------------------------------------
+# RAG Query
+# ---------------------------------------------------------------------------
+
+class RAGQueryRequest(BaseModel):
+    """Request for a RAG semantic search."""
+    query: str = Field(..., example="identity theft")
+    n_results: int = Field(default=5, ge=1, le=20)
+
+
+class RAGResult(BaseModel):
+    """A single RAG search result."""
+    text: str
+    confidence: float
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class RAGQueryResponse(BaseModel):
+    """Response from the RAG query endpoint."""
+    query: str
+    count: int
+    results: List[RAGResult]
+
+
+# ---------------------------------------------------------------------------
+# Health Check
+# ---------------------------------------------------------------------------
+
+class HealthResponse(BaseModel):
+    """Response from the health check endpoint."""
+    status: str
+    version: str
+    services: Dict[str, str]

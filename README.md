@@ -188,6 +188,45 @@ See `sql/create_tables.sql` for schema DDL and `sql/analytical_queries.sql` for 
 
 ---
 
+## 🚀 Microservices Architecture
+
+Veriscan uses a **decoupled microservices architecture**. The ML, RAG, and Agentic AI components run as a standalone **FastAPI backend**, and the Streamlit dashboard consumes them via REST API.
+
+```mermaid
+graph LR
+    subgraph Frontend ["🖥️ Streamlit Dashboard (Port 8502)"]
+        UI[Dashboard UI]
+    end
+
+    subgraph Backend ["⚡ FastAPI Backend (Port 8000)"]
+        API[REST API Router]
+        ML[Fraud ML Model]
+        Agent[GuardAgent + LLM]
+        RAG[RAG Engine + ChromaDB]
+    end
+
+    UI -->|POST /api/fraud/predict| API
+    UI -->|POST /api/agent/investigate| API
+    UI -->|POST /api/rag/query| API
+    UI -->|GET /api/user/ID/risk| API
+    API --> ML
+    API --> Agent
+    API --> RAG
+```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check & loaded services |
+| `POST` | `/api/fraud/predict` | Single-transaction fraud prediction |
+| `GET` | `/api/fraud/high-risk?limit=N` | Top N riskiest transactions |
+| `GET` | `/api/user/{user_id}/risk` | User risk profile |
+| `POST` | `/api/agent/investigate` | Full agentic investigation |
+| `POST` | `/api/rag/query` | Semantic knowledge search |
+
+---
+
 ## Quick Start
 
 ### 1. Requirements
@@ -202,24 +241,23 @@ pip install -r requirements.txt
 ### 3. Run the Data Pipeline
 ```bash
 # Prepare dataset (requires fraudTrain.csv in dataset/csv_data/)
-python scripts/load_kaggle_data.py --input dataset/csv_data/fraudTrain.csv
-
-# Compute features
-python scripts/feature_engineering.py
+python scripts/prepare_fraud_data.py
 
 # Train the fraud model
 python models/train_fraud_model.py
 
-# (Optional) Upload to Snowflake
-export SNOWFLAKE_ACCOUNT="your-account"
-export SNOWFLAKE_USER="your-user"
-export SNOWFLAKE_PASSWORD="your-password"
-python scripts/upload_all_to_snowflake.py
+# Sync agent data files
+python scripts/fix_agent_data.py
 ```
 
-### 4. Launch Dashboard
+### 4. Launch the API Backend
 ```bash
-streamlit run streamlit_app.py
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+### 5. Launch the Dashboard (separate terminal)
+```bash
+streamlit run streamlit_app.py --server.port 8502
 ```
 *Note: On first run, the Llama-3 model (~4.9GB) will be downloaded automatically.*
 
