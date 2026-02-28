@@ -30,44 +30,47 @@ The name **Veriscan** represents the fusion of two core security principles:
 
 ## Visual Architecture
 
-### � Multi-Agent Orchestration Flow
-Veriscan-Cortex uses a **Deterministic Router** to ensure maximum speed and a **Synthesis Orchestrator** for complex reasoning.
+### 🧠 How the AI "Brain" Works
+Veriscan-Cortex works like a professional security team. Instead of one slow AI doing everything, we used **specialized agents** that work together in a split second.
 
 ```mermaid
-sequenceDiagram
-    participant User as "👤 User"
-    participant Guard as "🛡️ GuardAgent (Router)"
-    participant Mem as "🧠 ConversationMemory"
-    participant Knowledge as "📚 KnowledgeAgent"
-    participant Scanner as "🔍 RiskScannerAgent"
-    participant Profile as "👤 ProfileAgent"
-    participant Synthesis as "🎭 SynthesisAgent"
-    participant Tools as "🛠️ Data Tools"
-
-    User->>Guard: "Investigate USER_1 risk vs trends"
-    Guard->>Guard: Classify Query (Deterministic Rules)
+graph TD
+    User([User Question]) --> Guard{🛡️ GuardAgent}
+    Guard -->|Simple Data| Specialist[⚡ Fast Specialist]
+    Guard -->|Complex Task| Brain[🧠 Synthesis Brain]
     
-    alt is Synthesis Type
-        Guard->>Synthesis: Delegate Investigation
-        Synthesis->>Mem: Load Contextual History
-        Synthesis->>Tools: Parallel Data Retrieval (RAG & ML)
-        Synthesis->>Synthesis: Expert LLM Synthesis (Llama-3)
-        Synthesis-->>Guard: AgentResult
-    else is Specialist Type (e.g. Profile)
-        Guard->>Profile: Delegate Query
-        Profile->>Tools: Cached Data Lookup
-        Profile-->>Guard: AgentResult
+    Specialist -->|Instant| Report[Security Report]
+    Brain -->|Reasoning| Report
+    
+    subgraph Specialists [Quick Response Team]
+        Scanner[🔍 System Scanner]
+        Profile[👤 User Investigator]
+        Knowledge[📚 Policy Expert]
+    end
+    
+    subgraph Core [The Deep Thinker]
+        Synthesis[🎭 Synthesis Agent]
+        Memory[💾 Conversation Memory]
     end
 
-    Guard->>User: Professional Security Analysis
+    Guard -.-> Specialists
+    Synthesis -.-> Core
 ```
 
-#### 🧩 How They Work Together:
-1.  **The GuardAgent (Facade/Router):** Acts as the entry point. It uses fast, rule-based classification (Regex/Keywords) to determine if a query is a simple data lookup or a complex analytical request. This avoids unnecessary LLM latency for simple tasks.
-2.  **Specialized Specialists:**
-    *   **Scanner & Profile:** Handle single-source data retrieval instantly using pre-cached DataFrames (no LLM needed).
-    *   **KnowledgeAgent:** Performs RAG semantic search with **Multi-Stage Re-ranking** to provide expert-level policy/theory answers.
-3.  **The SynthesisAgent (The Brain):** When a query is complex (multi-user, comparative, or high-level), this agent takes over. It pulls data from *multiple* specialized tools and uses the **ConversationMemory** to maintain state across turns, providing a unified, cohesive intelligence report.
+#### 🧩 The Roles:
+| Agent | Role | "The Personality" |
+| :--- | :--- | :--- |
+| **Guard (Router)** | The Receptionist | Decides instantly who is best to answer your question. |
+| **Scanner** | The Watchman | Scans the whole system for high-risk threats in milliseconds. |
+| **Profile** | The Private Eye | Looks deep into a specific user's history and risk scores. |
+| **Knowledge** | The Lawyer | Knows all the CFPB rules and fraud theory by heart. |
+| **Synthesis** | The Chief Analyst | The "Deep Thinker" that combines all data into a final report. |
+
+#### 🔄 The Process:
+1. **Listen:** The **Guard** hears your question.
+2. **Assign:** If you ask for a user's risk, the **Profile** agent handles it. If it's a complex "What if?" question, the **Synthesis** agent takes over.
+3. **Remember:** The **Memory** system ensures the AI remembers what you talked about earlier.
+4. **Report:** You get a professional, data-backed security analysis in seconds.
 
 ### 🔍 Multi-Stage RAG Architecture
 The RAG system features a **Multi-Stage Retrieval** pipeline over **1,400+ local documents**. It uses semantic search followed by a **Re-ranking Layer** that prioritizes high-confidence Expert Fraud Intelligence (100+ expert QA pairs) over raw transaction context.
