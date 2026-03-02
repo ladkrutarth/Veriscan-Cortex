@@ -307,5 +307,3 @@ streamlit run streamlit_app.py --server.port 8502
 | **Config** | `scripts/ingest_config.yaml` (supports env var overrides) |
 | **Secrets** | All credentials via environment variables; `.env` in `.gitignore` |
 
----
-**Status**: Private & Operational | **Accuracy**: 100% Agent / 98% ML | **Platform**: Apple Silicon Optimized
