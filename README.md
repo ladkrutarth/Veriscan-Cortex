@@ -26,8 +26,6 @@ The name **Veriscan** represents the fusion of two core security principles:
 - **VERI** (*Verification & Veracity*): A commitment to absolute identity truth through dynamic authentication and data-backed evidence.
 - **SCAN** (*Scanning & Surveillance*): The power of autonomous agentic "scans" that explore transaction history, risk profiles, and global trends to detect threats in milliseconds.
 
-\
-
 ## Visual Architecture
 
 ### 🧠 How the AI "Brain" Works
