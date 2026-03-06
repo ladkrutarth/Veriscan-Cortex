@@ -43,6 +43,10 @@ from api.schemas import (
     SpendingDNAResponse,
     DNACompareRequest,
     DNACompareResponse,
+    OmniChatRequest,
+    OmniChatResponse,
+    SecurityChatRequest,
+    SecurityChatResponse,
 )
 
 
@@ -58,6 +62,7 @@ async def lifespan(app: FastAPI):
     """Load heavy resources once when the server boots.
     GuardAgent (MLX) is skipped at startup to avoid Metal crash when GPU unavailable.
     """
+    global _agent, _rag_engine
     print("🚀 Veriscan API — Loading resources...")
 
     # 2. RAG Engine (no MLX — safe to load)
@@ -255,7 +260,45 @@ async def advisor_users():
 
 
 # ---------------------------------------------------------------------------
-# Feature 2: Spending DNA
+# Feature 2: AI Security Analyst Chat
+# ---------------------------------------------------------------------------
+@app.post("/api/security/chat", response_model=SecurityChatResponse, tags=["AI Security Analyst"])
+async def security_chat(req: SecurityChatRequest):
+    """Conversational security analyst — answers questions about fraud, anomalies, and safety."""
+    if not _agent:
+        raise HTTPException(status_code=503, detail="GuardAgent not loaded.")
+
+    try:
+        # We can use the core LLM directly for general security advice, 
+        # or we could build a dedicated SecurityAgent class. For now, we'll
+        # just answer via the LLM to keep the separation clean.
+        
+        system_prompt = (
+            "You are an elite AI Security Analyst. Your job is strictly to analyze "
+            "security data, explain fraud risks, and provide safety protocols. "
+            "Never provide financial advice, budgets, or savings plans.\n\n"
+            "Format your response professionally:\n"
+            "1. Be extremely concise (under 200 words max).\n"
+            "2. Use bullet points and bold text for key findings.\n"
+            "3. Provide direct, actionable safety advice without unnecessary filler text."
+        )
+        
+        prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{req.message}<|im_end|>\n<|im_start|>assistant\n"
+        
+        reply = _agent.llm.generate(prompt, max_tokens=250, temp=0.2)
+        
+        return SecurityChatResponse(
+            reply=reply,
+            actions=[],
+            status="completed",
+            session_id=req.session_id
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Feature 3: Spending DNA
 # ---------------------------------------------------------------------------
 @app.get("/api/dna/profile/{user_id}", response_model=SpendingDNAResponse, tags=["Spending DNA"])
 async def get_dna_profile(user_id: str):
@@ -279,8 +322,38 @@ async def compare_dna(req: DNACompareRequest):
     return DNACompareResponse(**result)
 
 
-@app.get("/api/dna/users", tags=["Spending DNA"])
-async def dna_users():
-    """Return all user IDs in the Spending DNA dataset."""
     from agents.spending_dna_agent import SpendingDNAAgent
     return {"users": SpendingDNAAgent().get_all_users()}
+
+
+# ---------------------------------------------------------------------------
+# Feature 3: Omni-Agent Intelligence
+# ---------------------------------------------------------------------------
+@app.post("/api/omni/chat", response_model=OmniChatResponse, tags=["Omni-Agent Intelligence"])
+async def omni_chat(req: OmniChatRequest):
+    """SupremeOmniAgent — Handled unified security and financial requests."""
+    from agents.omni_agent import SupremeOmniAgent
+    agent = SupremeOmniAgent()
+    result = agent.chat(req.user_id, req.message)
+    
+    # Map actions to AgentActionStep schema
+    actions = []
+    for a in result.get("actions", []):
+        actions.append(
+            AgentActionStep(
+                step=a.get("step", 0),
+                tool=a.get("tool", "unknown"),
+                args=a.get("args", {}),
+                result=str(a.get("result", ""))
+            )
+        )
+        
+    return OmniChatResponse(
+        user_id=req.user_id,
+        reply=result.get("reply", ""),
+        actions=actions,
+        status=result.get("status", "success"),
+        domain=result.get("domain", "hybrid"),
+        show_chart=result.get("show_chart", False),
+        chart_data=result.get("chart_data", {})
+    )

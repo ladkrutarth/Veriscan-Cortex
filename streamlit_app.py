@@ -11,7 +11,6 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
 import sys
-import re
 from pathlib import Path
 
 import streamlit as st
@@ -31,36 +30,40 @@ API_BASE_URL = os.environ.get("VERISCAN_API_URL", "http://localhost:8000")
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-FEATURES_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "transactions_3000.csv"
+FEATURES_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "financial_advisor_dataset.csv"
 CFPB_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "cfpb_credit_card.csv"
 
 # ---------------------------------------------------------------------------
 # Aesthetics & Accessibility Constants
 # ---------------------------------------------------------------------------
-CHART_TEXT_COLOR = "#1e293b"  # High contrast Navy for legibility
-CHART_FONT = {"family": "Outfit", "size": 13, "color": CHART_TEXT_COLOR}
+CHART_TEXT_COLOR = "#0f172a"  # Darker Navy for maximum contrast
+CHART_FONT = {"family": "Outfit", "size": 14, "color": CHART_TEXT_COLOR}
 
 # Helper to apply unified accessible theme to Plotly figures
 def apply_accessible_theme(fig):
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(248,250,252,0.5)",
         font=CHART_FONT,
-        margin={"l": 20, "r": 20, "t": 60, "b": 20},
-        title_font={"size": 18, "family": "Outfit", "color": CHART_TEXT_COLOR},
-        legend_font={"size": 12, "color": CHART_TEXT_COLOR},
+        margin={"l": 30, "r": 30, "t": 60, "b": 30},
+        title_font={"size": 20, "family": "Outfit", "color": CHART_TEXT_COLOR, "weight": "bold"},
+        legend_font={"size": 13, "color": CHART_TEXT_COLOR},
     )
     fig.update_xaxes(
         showgrid=True, 
-        gridcolor="rgba(0,0,0,0.05)", 
-        tickfont={"size": 11, "color": CHART_TEXT_COLOR},
-        title_font={"size": 13, "color": CHART_TEXT_COLOR}
+        gridcolor="rgba(226, 232, 240, 1)", 
+        tickfont={"size": 12, "color": CHART_TEXT_COLOR, "weight": "bold"},
+        title_font={"size": 14, "color": CHART_TEXT_COLOR, "weight": "bold"},
+        linecolor="#94a3b8",
+        linewidth=1
     )
     fig.update_yaxes(
         showgrid=True, 
-        gridcolor="rgba(0,0,0,0.05)", 
-        tickfont={"size": 11, "color": CHART_TEXT_COLOR},
-        title_font={"size": 13, "color": CHART_TEXT_COLOR}
+        gridcolor="rgba(226, 232, 240, 1)", 
+        tickfont={"size": 12, "color": CHART_TEXT_COLOR, "weight": "bold"},
+        title_font={"size": 14, "color": CHART_TEXT_COLOR, "weight": "bold"},
+        linecolor="#94a3b8",
+        linewidth=1
     )
     return fig
 
@@ -272,18 +275,25 @@ import random
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=600)
-def load_fraud_data():
-    if FEATURES_PATH.exists():
-        df = pd.read_csv(FEATURES_PATH)
+def load_fraud_data(path: Path, mtime: float):
+    if path.exists():
+        df = pd.read_csv(path)
         df.columns = [c.lower() for c in df.columns]
+        # Compatibility fix: ensure is_fraud_flag exists if it's the advisor dataset
+        if 'is_fraud_flag' not in df.columns:
+            if 'is_fraud' in df.columns:
+                df = df.rename(columns={'is_fraud': 'is_fraud_flag'})
+            elif 'is_fraud_flag' not in df.columns:
+                # Last resort: create the column if missing
+                df['is_fraud_flag'] = False
         return df
     return pd.DataFrame()
 
 @st.cache_data(ttl=600)
 def load_cfpb_data():
     if CFPB_PATH.exists():
-        # Using subset for quick performance
-        return pd.read_csv(CFPB_PATH, nrows=10000)
+        # Large scale analysis enabled
+        return pd.read_csv(CFPB_PATH, nrows=50000)
     return pd.DataFrame()
 
 def api_available() -> bool:
@@ -328,7 +338,7 @@ def render_sidebar():
 
         st.divider()
         st.markdown("### System Status")
-        fraud_df = load_fraud_data()
+        fraud_df = load_fraud_data(FEATURES_PATH, FEATURES_PATH.stat().st_mtime if FEATURES_PATH.exists() else 0)
         cfpb_df = load_cfpb_data()
         
         st.markdown(f"""
@@ -349,195 +359,44 @@ def render_dashboard_tab(df):
     
     c1, c2, c3 = st.columns(3)
     with c1: st.markdown(f"<div class='metric-card'><h3>Processed</h3><div class='value'>{len(df):,}</div></div>", unsafe_allow_html=True)
-    with c2: st.markdown(f"<div class='metric-card'><h3>Fraud Cases</h3><div class='value' style='color:#dc2626'>{df['is_fraud'].sum():,}</div></div>", unsafe_allow_html=True)
-    with c3: st.markdown(f"<div class='metric-card'><h3>Fraud Risk</h3><div class='value'>{(df['is_fraud'].mean()*100):.1f}%</div></div>", unsafe_allow_html=True)
+    with c2: st.markdown(f"<div class='metric-card'><h3>Fraud Cases</h3><div class='value' style='color:#dc2626'>{df['is_fraud_flag'].sum():,}</div></div>", unsafe_allow_html=True)
+    with c3: st.markdown(f"<div class='metric-card'><h3>Fraud Risk</h3><div class='value'>{(df['is_fraud_flag'].mean()*100):.1f}%</div></div>", unsafe_allow_html=True)
 
     st.divider()
     col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Fraud by Category")
-        cat_data = df.groupby('category')['is_fraud'].sum().sort_values(ascending=False).reset_index()
-        fig = px.bar(cat_data, x='is_fraud', y='category', orientation='h', color='is_fraud', 
-                     color_continuous_scale='Viridis', template='plotly_white', title="Complaint Volume by Category")
+        st.subheader("Fraud Heatmap by Category")
+        cat_data = df.groupby('category')['is_fraud_flag'].sum().sort_values(ascending=False).reset_index()
+        fig = px.bar(cat_data, x='is_fraud_flag', y='category', orientation='h', color='is_fraud_flag', 
+                     color_continuous_scale='Blues', template='plotly_white')
         st.plotly_chart(apply_accessible_theme(fig), use_container_width=True)
     
     with col2:
-        st.subheader("Top Fraud States")
-        state_data = df.groupby('state')['is_fraud'].sum().sort_values(ascending=False).head(10).reset_index()
-        fig = px.bar(state_data, x='is_fraud', y='state', orientation='h', color='is_fraud', 
-                     color_continuous_scale='Plasma', template='plotly_white', title="Top 10 High-Risk States")
+        st.subheader("Interactive Fraud Map (US)")
+        state_data = df.groupby('state')['is_fraud_flag'].sum().reset_index()
+        fig = px.choropleth(
+            state_data,
+            locations='state',
+            locationmode="USA-states",
+            color='is_fraud_flag',
+            color_continuous_scale="OrRd",
+            scope="usa",
+            labels={'is_fraud_flag': 'Fraud Cases'}
+        )
         st.plotly_chart(apply_accessible_theme(fig), use_container_width=True)
 
+    st.subheader("Monthly Fraud Trends (Month & Year)")
+    trend_data = df[df['is_fraud_flag'] == True].groupby('month_key').size().reset_index(name='fraud_count')
+    fig_trend = px.line(trend_data, x='month_key', y='fraud_count', 
+                        title="Fraud Cases Trend (2-Year History)",
+                        labels={'month_key': 'Month', 'fraud_count': 'Number of Fraud Cases'},
+                        markers=True, template='plotly_white')
+    fig_trend.update_traces(line_color='#dc2626', line_width=3)
+    st.plotly_chart(apply_accessible_theme(fig_trend), use_container_width=True)
+
 
 # ---------------------------------------------------------------------------
-# Tab 3: Dynamic Authentication
-# ---------------------------------------------------------------------------
-def render_auth_tab(df):
-    st.markdown("### 🔑 Context-Aware identity Auth")
-    st.info("The system generates 3 dynamic questions based on recent account activity. You must answer correctly to verify your identity.")
-
-    # User pool for demo
-    user_counts = df.groupby(['first', 'last']).size().reset_index(name='c').query('c > 4').head(12)
-    user_list = [f"{r['first']} {r['last']}" for _, r in user_counts.iterrows()]
-    selected_user = st.selectbox("Simulate Authentication for User:", user_list)
-    first_name, last_name = selected_user.split(" ", 1)
-
-    # State management for the 3-question quiz
-    if "auth_quiz" not in st.session_state or st.session_state.get("auth_user") != selected_user:
-        st.session_state.auth_quiz = {
-            "step": 0,
-            "questions": [],
-            "score": 0,
-            "completed": False,
-            "last_result": None,
-            "user_responses": []
-        }
-        st.session_state.auth_user = selected_user
-
-    quiz = st.session_state.auth_quiz
-
-    if not quiz["completed"]:
-        st.markdown(f"#### Question {quiz['step'] + 1} of 3")
-        
-        # BULK GENERATION OPTIMIZATION
-        if not quiz["questions"]:
-            with st.spinner("Generating all security challenges locally for maximum speed..."):
-                # Get context for 3 different questions
-                user_txns = df[(df['first'] == first_name) & (df['last'] == last_name)]
-                if len(user_txns) < 3:
-                     st.warning("Insufficient transaction history for a secure 3-step audit.")
-                     return
-
-                # SELECT 3 SPECIFIC GROUND-TRUTH TARGETS
-                targets = user_txns.sample(3).to_dict('records')
-                target_features = []
-                for t in targets:
-                    f = random.choice(['merchant', 'amt', 'category'])
-                    target_features.append({"feature": f, "value": t[f]})
-                
-                features_ctx = "\n".join([f"- Question {i+1}: Feature is '{tf['feature']}', Correct Value is '{tf['value']}'" for i, tf in enumerate(target_features)])
-                
-                prompt = f"""Generate EXACTLY 3 identity verification questions for {selected_user}.
-You MUST use these specific Ground Truth values for the CORRECT answers:
-{features_ctx}
-
-STRICT RULES:
-1. Return EXACTLY 3 questions.
-2. For each, the CORRECT option MUST contain the Ground Truth value provided above.
-3. Provide 3 incorrect distractor options for each.
-4. Format:
-[Question 1]
-Question: [Text]
-A) [Option Text]
-B) [Option Text]
-C) [Option Text]
-D) [Option Text]
-Correct: [Letter]
-[End Question]
-"""
-                raw_q_bulk = get_llm_via_api(prompt)
-                
-                # Resilient bulk parser
-                blocks = re.split(r'\[Question \d\]', raw_q_bulk)
-                for i, block in enumerate(blocks):
-                    if len(quiz["questions"]) >= 3:
-                        break
-                        
-                    if "Question:" in block:
-                        lines = [l.strip() for l in block.split("\n") if l.strip()]
-                        q_text = next((l.replace("Question:", "").strip() for l in lines if l.startswith("Question:")), "Identity Check")
-                        all_opts = [l for l in lines if re.match(r'^[A-D]\)', l)]
-                        opts = all_opts[:4]
-                        
-                        while len(opts) < 4:
-                            letter = chr(65 + len(opts))
-                            opts.append(f"{letter}) Other activity")
-
-                        # Answer parsing
-                        correct_line = next((l for l in lines if l.startswith("Correct:")), "Correct: A")
-                        after_colon = correct_line.split(":")[-1]
-                        correct_search = re.search(r'[A-D]', after_colon.upper())
-                        correct_letter = correct_search.group(0) if correct_search else "A"
-                        
-                        # Store Ground Truth for verification
-                        quiz["questions"].append({
-                            "text": q_text,
-                            "options": opts,
-                            "correct_letter": correct_letter,
-                            "ground_truth": target_features[len(quiz["questions"])]["value"]
-                        })
-                
-                # Fallback if generation failed
-                if not quiz["questions"]:
-                    st.error("Failed to generate challenges. Please retry.")
-                    return
-                st.rerun()
-
-        # Display current question
-        current_q = quiz["questions"][quiz["step"]]
-        st.markdown(f"**{current_q['text']}**")
-        user_choice = st.radio("Choose your answer:", [o[0] for o in current_q["options"]], 
-                              format_func=lambda x: next(o for o in current_q["options"] if o.startswith(x)))
-        
-        if st.button("Submit Answer"):
-            # GROUND TRUTH VERIFICATION: Check if the selected option text contains the actual data
-            selected_option_text = next(o for o in current_q["options"] if o.startswith(user_choice))
-            ground_truth = str(current_q["ground_truth"])
-            
-            # Case-insensitive check to ensure the user picked the real data
-            is_correct = ground_truth.lower() in selected_option_text.lower()
-            
-            quiz["user_responses"].append({
-                "question": current_q["text"],
-                "your_answer": selected_option_text,
-                "ground_truth": ground_truth,
-                "is_correct": is_correct
-            })
-
-            if is_correct:
-                 quiz["score"] += 1
-                 quiz["last_result"] = f"✅ Verified: {ground_truth} matches records."
-            else:
-                 quiz["last_result"] = f"❌ Verification Failed. (Evidence did not match history)."
-            
-            quiz["step"] += 1
-            if quiz["step"] >= 3:
-                quiz["completed"] = True
-            st.rerun()
-
-        if quiz["last_result"]:
-            st.toast(quiz["last_result"])
-
-    else:
-        # Quiz completed
-        st.success(f"Authentication Process Completed for {selected_user}!")
-        st.markdown(f"""
-        <div class='metric-card' style='padding: 2rem;'>
-            <h3>Verification Score</h3>
-            <div class='value' style='color:{"#16a34a" if quiz["score"] >= 2 else "#dc2626"};'>{quiz["score"]}/3</div>
-            <p>{ "Identity Verified ✅" if quiz["score"] >= 2 else "Verification Failed ❌" }</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("#### 📑 Verification Audit Log")
-        # Build a nice table for the summary
-        summary_data = []
-        for r in quiz["user_responses"]:
-            summary_data.append({
-                "Security Challenge": r["question"],
-                "Your Response": r["your_answer"],
-                "Ground Truth (Actual Records)": r["ground_truth"],
-                "Status": "✅ PASS" if r["is_correct"] else "❌ FAIL"
-            })
-        
-        st.table(pd.DataFrame(summary_data))
-        
-        if st.button("Restart Authentication"):
-            del st.session_state.auth_quiz
-            st.rerun()
-
-# ---------------------------------------------------------------------------
-# Tab 4: CFPB Market Intelligence
+# Tab 3: CFPB Market Intelligence
 # ---------------------------------------------------------------------------
 def render_cfpb_tab(df):
     st.markdown("### 🔍 CFPB Credit Card Intelligence")
@@ -545,232 +404,294 @@ def render_cfpb_tab(df):
         st.warning("CFPB dataset missing or empty.")
         return
 
-    m1, m2 = st.columns([1.2, 1])
-    with m2:
-        st.markdown("#### Complaint Trends")
-        top_cos = df['Company'].value_counts().head(8).reset_index()
-        fig = px.bar(top_cos, x='count', y='Company', orientation='h', template='plotly_white', 
-                     color='count', color_continuous_scale='Cividis', title="Volume by Financial Institution")
-        st.plotly_chart(apply_accessible_theme(fig), use_container_width=True)
-
+    reporting_cos = [
+        "EQUIFAX, INC.", 
+        "TRANSUNION INTERMEDIATE HOLDINGS, INC.", 
+        "EXPERIAN INFORMATION SOLUTIONS, INC.",
+        "LEXISNEXIS RISK DATA MANAGEMENT INC."
+    ]
+    
+    m1, m2 = st.columns([1, 1])
     with m1:
-        st.markdown("#### Complaint Analysis")
-        st.info("The complaint database provides insight into consumer pain points and institutional response trends.")
+        st.markdown("#### 🏛️ Reporting Agencies")
+        rep_df = df[df['Company'].isin(reporting_cos)]
+        rep_counts = rep_df['Company'].value_counts().reset_index()
+        fig_rep = px.bar(rep_counts, x='count', y='Company', orientation='h', template='plotly_white', 
+                         color='count', color_continuous_scale='Turbo', title="Credit Reporting Volume")
+        st.plotly_chart(apply_accessible_theme(fig_rep), use_container_width=True)
 
-        st.markdown("#### Geographic Distribution")
-        state_counts = df['State'].value_counts().head(10).reset_index()
-        fig2 = px.pie(state_counts, values='count', names='State', hole=0.5, template='plotly_white',
-                      color_discrete_sequence=px.colors.qualitative.Antique, title="Top States by Complaint Density")
+    with m2:
+        st.markdown("#### 💳 Card Issuers")
+        iss_df = df[~df['Company'].isin(reporting_cos)]
+        iss_counts = iss_df['Company'].value_counts().head(8).reset_index()
+        fig_iss = px.bar(iss_counts, x='count', y='Company', orientation='h', template='plotly_white', 
+                         color='count', color_continuous_scale='IceFire', title="Top Issuer Complaints")
+        st.plotly_chart(apply_accessible_theme(fig_iss), use_container_width=True)
+
+    st.divider()
+    c1, c2 = st.columns([3, 2])
+    with c1:
+        st.markdown("#### 🗺️ Geographic Distribution")
+        state_data = df.groupby('State').size().reset_index(name='Complaints')
+        fig2 = px.choropleth(
+            state_data,
+            locations='State',
+            locationmode="USA-states",
+            color='Complaints',
+            color_continuous_scale="Viridis",
+            scope="usa",
+            labels={'Complaints': 'Complaints'},
+            title="Complaint Distribution by State"
+        )
         st.plotly_chart(apply_accessible_theme(fig2), use_container_width=True)
 
-    st.divider()
-    st.markdown("#### 💬 Ask Local RAG")
-    query = st.text_input("Search context for fraud patterns or policy details:", placeholder="e.g. Find high-value travel anomalies...")
-    if st.button("Query Knowledge Base") and query:
-        with st.spinner("Querying RAG via API..."):
+    with c2:
+        st.markdown("#### 💬 AI Intelligence & Search")
+        st.info("Query the knowledge base for fraud patterns or policy details.")
+        query = st.text_input("Search context:", placeholder="e.g. Find high-value travel anomalies...", key="cfpb_rag_q")
+        if st.button("Query Knowledge Base", key="cfpb_rag_btn") and query:
+            with st.spinner("Analyzing..."):
+                try:
+                    resp = requests.post(f"{API_BASE_URL}/api/rag/query", json={"query": query, "n_results": 5}, timeout=30)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        if data["results"]:
+                            for r in data["results"]:
+                                st.markdown(f"<div class='rag-answer'>{r}</div>", unsafe_allow_html=True)
+                        else:
+                            st.info("No matching context found.")
+                except Exception as e:
+                    st.error(f"RAG Error: {e}")
+
+
+
+# ---------------------------------------------------------------------------
+# Tab 1: AI Specialist Models (Security & Financial)
+# ---------------------------------------------------------------------------
+def render_omni_tab():
+    from agents.financial_advisor_agent import FinancialAdvisorAgent
+    
+    st.markdown("### 🤖 AI Specialist Models")
+    st.caption("Select your specialized AI agent for focused analysis.")
+
+    # 1. User Context Selector
+    try:
+        adv = FinancialAdvisorAgent()
+        all_users = adv.get_all_users()
+    except Exception:
+        all_users = ["USER_0001"]
+
+    colX, colY = st.columns([1, 2])
+    with colX:
+        st.markdown("<p style='color: black; font-weight: bold; font-size: 14px; margin-bottom: 5px; margin-left: 2px;'>👤 Target Context:</p>", unsafe_allow_html=True)
+        selected_user = st.selectbox("", all_users[:50], key="omni_user", label_visibility="collapsed")
+    
+    with colY:
+        st.markdown("<p style='color: black; font-weight: bold; font-size: 14px; margin-bottom: 5px; margin-left: 2px;'>🧠 Select AI Model:</p>", unsafe_allow_html=True)
+        selected_model = st.selectbox(
+            "",
+            ["🛡️ Security AI Analyst", "💰 Financial AI Advisor"],
+            key="model_selector",
+            label_visibility="collapsed"
+        )
+        
+    is_security_model = "Security" in selected_model
+    is_financial_model = "Financial" in selected_model
+
+    # 2. Dynamic Top Widget (Shield vs. Chart preview)
+    if is_security_model:
+        try:
+            monitor = adv.tool_suspicious_activity_monitor(selected_user)
+            if monitor["alert_count"] > 0:
+                overall = monitor["overall_status"]
+                border = "#dc2626" if "CRITICAL" in overall else "#d97706"
+                st.markdown(
+                    f"""<div style='background:rgba(220,38,38,0.05);border:1px solid {border};border-radius:12px;padding:1rem;margin-bottom:1.5rem;'>
+                    <div style='font-weight:700;font-size:1rem;margin-bottom:0.5rem;'>🛡️ System Shield Live Monitor — <span style='color:{border};'>{overall}</span></div>
+                    <p style='font-size:0.9rem; margin-bottom:0.5rem;'>Detected {monitor['alert_count']} anomalies requiring immediate attention.</p>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.success("✅ **System Shield:** Active monitoring shows no suspicious activity.", icon="🛡️")
+        except Exception:
+            pass
+    elif is_financial_model:
+        try:
+            summary = adv.tool_spending_summary(selected_user)
+            st.info(f"📊 **Quick Review:** {summary['archetype'].replace('_', ' ').title()} spender. Monthly Avg: **${summary['avg_monthly_spend']:,.2f}**")
+        except Exception:
+            pass
+
+    # 3. Dedicated Chat & Investigation Interface
+    st.markdown(f"#### 💬 {selected_model} Interface")
+    
+    if "run_omni" not in st.session_state:
+        st.session_state.run_omni = False
+
+    def set_preset(query):
+        st.session_state.omni_input = query
+        st.session_state.run_omni = True
+
+    # Dynamic Quick Answer Buttons based on model
+    if is_security_model:
+        qa1, qa2 = st.columns(2)
+        qa1.button("🔍 Run Fraud Scan", on_click=set_preset, args=("Scan my recent transactions for any signs of fraud.",), use_container_width=True, key="sec_qa1")
+        qa2.button("🛡️ Anomaly Protocol", on_click=set_preset, args=("Execute the anomaly detection protocol and report risks.",), use_container_width=True, key="sec_qa2")
+        placeholder = "e.g. 'Investigate the recent high-value transactions for fraud alerts.'"
+    else:
+        qa1, qa2, qa3 = st.columns(3)
+        qa1.button("📊 Spend Review", on_click=set_preset, args=("Provide a full spending portfolio review.",), use_container_width=True, key="fin_qa1")
+        qa2.button("💰 Savings Plan", on_click=set_preset, args=("Generate a targeted savings strategy for my archetype.",), use_container_width=True, key="fin_qa2")
+        qa3.button("💳 Credit Impact", on_click=set_preset, args=("Estimate my credit health and identifies risk factors.",), use_container_width=True, key="fin_qa3")
+        placeholder = "e.g. 'How much did I spend on coffee this month, and how can I save?'"
+
+    user_q = st.text_area("Request Intelligence:", 
+                         placeholder=placeholder,
+                         height=100, key="omni_input")
+    
+    execute_clicked = st.button(f"🚀 Execute {selected_model.split()[1]} Reasoning", key="omni_btn", type="primary")
+    
+    if (execute_clicked or st.session_state.run_omni) and user_q:
+        st.session_state.run_omni = False  # Reset the trigger
+        with st.spinner(f"{selected_model.split()[1]} Agent is analyzing..."):
             try:
-                resp = requests.post(f"{API_BASE_URL}/api/rag/query", json={"query": query, "n_results": 5}, timeout=30)
+                if is_security_model:
+                    # Route to dedicated Security Endpoint
+                    resp = requests.post(f"{API_BASE_URL}/api/security/chat", json={"message": user_q}, timeout=120)
+                else:
+                    # Route strictly to Financial Advisor
+                    resp = requests.post(f"{API_BASE_URL}/api/advisor/chat", json={"user_id": selected_user, "message": user_q}, timeout=120)
+
                 if resp.status_code == 200:
-                    data = resp.json()
-                    if data["results"]:
-                        for r in data["results"]:
-                            st.markdown(f"""
-                            <div class='rag-answer' style='margin-bottom:1rem; border-color: rgba(99, 102, 241, 0.3);'>
-                                <strong>[{r['confidence']:.1%} Relevance]</strong><br>{r['text']}
-                            </div>
-                            """, unsafe_allow_html=True)
-                    else:
-                        st.warning("No relevant context found.")
+                    res = resp.json()
+                    
+                    st.info(f"🧠 Reasoning Mode: **{selected_model}**")
+                    
+                    # Show final response with proper markdown rendering
+                    with st.container():
+                        st.markdown(res["reply"])
+
+                    # Show Chart *only* for Financial Advisor if requested
+                    if is_financial_model and res.get("show_chart") and res.get("chart_data"):
+                        with st.container():
+                            st.markdown("#### 📊 Diagnostic Portfolio Visualization")
+                            data = res["chart_data"]
+                            fig = px.bar(
+                                x=list(data.keys()), 
+                                y=list(data.values()), 
+                                labels={'x': 'Category', 'y': 'Total Allocation ($)'},
+                                color=list(data.values()),
+                                color_continuous_scale="Sunset",
+                                text_auto='.2s'
+                            )
+                            fig.update_layout(
+                                height=400, 
+                                margin=dict(l=20, r=20, t=20, b=20),
+                                paper_bgcolor="white",
+                                plot_bgcolor="white",
+                                font=dict(family="Outfit, sans-serif", size=13, color="#000000"),
+                                coloraxis_showscale=False,
+                                title_font=dict(color="#000000")
+                            )
+                            fig.update_xaxes(title_font=dict(color="#000000"), tickfont=dict(color="#000000"))
+                            fig.update_yaxes(title_font=dict(color="#000000"), tickfont=dict(color="#000000"))
+                            fig.update_traces(textposition='outside', cliponaxis=False, textfont=dict(color="#000000"))
+                            st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Trace rendering removed to enforce a clean, professional, sub-300 word summary via the Agent.
                 else:
                     st.error(f"API Error: {resp.status_code}")
-            except requests.ConnectionError:
-                st.error("🔴 Cannot reach API backend. Please start it with: `uvicorn api.main:app --port 8000`")
-                st.error("🔴 Cannot reach API backend. Please start it with: `uvicorn api.main:app --port 8000`")
+            except Exception as e:
+                st.error(f"🔴 Connection Error: {e}")
 
-
-
-# ---------------------------------------------------------------------------
-# Tab 5: Agentic Analyst
-# ---------------------------------------------------------------------------
-def render_agent_tab():
-    st.markdown("### 🤖 Agentic Security Analyst")
-    st.info("The GuardAgent is an autonomous analyst powered by a FastAPI microservice. It uses tool-based reasoning to investigate systemic risks.")
-
-    user_query = st.text_area("Investigation Request:", 
-                             placeholder="e.g. Investigate risk for USER_0. What are the top 3 high-risk transactions across the system?",
-                             height=150)
+    # =======================================================================
+    # Bottom Domain Diagnostics (Context Aware)
+    # =======================================================================
+    st.divider()
+    st.markdown("#### 💡 Diagnostic Shortcuts")
     
-    if st.button("Initiate Investigation") and user_query:
-        with st.spinner("Agent is reasoning via API backend..."):
-            try:
-                resp = requests.post(f"{API_BASE_URL}/api/agent/investigate", json={"query": user_query}, timeout=120)
-                if resp.status_code == 200:
-                    result = resp.json()
-                    
-                    # Show steps/history
-                    if result.get("actions"):
-                        with st.expander("🔍 Trace: Agent Reasoning Steps", expanded=True):
-                            for a in result["actions"]:
-                                st.markdown(f"**Step {a['step']}:** Calling `{a['tool']}` with args `{a['args']}`")
-                                if a.get('result'):
-                                    st.code(a['result'], language="json")
-                    
-                    # Show final report
-                    st.markdown("<div class='rag-answer'>", unsafe_allow_html=True)
-                    st.markdown("#### 🛡️ GuardAgent Report")
-                    st.markdown(result["answer"])
-                    st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.error(f"API Error: {resp.status_code} — {resp.text}")
-            except requests.ConnectionError:
-                st.error("🔴 Cannot reach API backend. Please start it with: `uvicorn api.main:app --port 8000`")
+    if is_financial_model:
+        st.info("Visualizing deep financial diagnostics.")
+        # ── Vector Analysis: Instant local chart ──────────────────────────────
+        if st.button("📉 Compute Vector Analysis", use_container_width=True):
+            with st.spinner("Computing spending vectors..."):
+                try:
+                    adv_local = FinancialAdvisorAgent()
+                    chart_data = adv_local.get_chart_data(selected_user)
+                    summary = adv_local.tool_spending_summary(selected_user)
+    
+                    if chart_data:
+                        st.markdown("#### 📊 Spending Vector Analysis")
+                        fig = px.bar(
+                            x=list(chart_data.keys()),
+                            y=list(chart_data.values()),
+                            labels={'x': 'Category', 'y': 'Total Spend ($)'},
+                            color=list(chart_data.values()),
+                            color_continuous_scale="Sunset",
+                            text_auto='.2s'
+                        )
+                        fig.update_layout(
+                            height=400,
+                            margin=dict(l=20, r=20, t=30, b=20),
+                            paper_bgcolor="white",
+                            plot_bgcolor="white",
+                            font=dict(family="Outfit, sans-serif", size=13, color="#000000"),
+                            coloraxis_showscale=False
+                        )
+                        fig.update_xaxes(title_font=dict(color="#000000"), tickfont=dict(color="#000000"))
+                        fig.update_yaxes(title_font=dict(color="#000000"), tickfont=dict(color="#000000"))
+                        fig.update_traces(textposition='outside', cliponaxis=False, textfont=dict(color="#000000"))
+                        st.plotly_chart(fig, use_container_width=True)
+    
+                        # Quick summary metrics - Force Black Text
+                        c1, c2, c3 = st.columns(3)
+                        c1.markdown(f"<div style='color: black; font-size: 0.9em; opacity: 0.8;'>💰 Total Spend</div><div style='color: black; font-size: 1.8em; font-weight: bold;'>${summary.get('total_spend', 0):,.2f}</div>", unsafe_allow_html=True)
+                        c2.markdown(f"<div style='color: black; font-size: 0.9em; opacity: 0.8;'>📅 Monthly Avg</div><div style='color: black; font-size: 1.8em; font-weight: bold;'>${summary.get('avg_monthly_spend', 0):,.2f}</div>", unsafe_allow_html=True)
+                        c3.markdown(f"<div style='color: black; font-size: 0.9em; opacity: 0.8;'>🏷️ Top Merchant</div><div style='color: black; font-size: 1.8em; font-weight: bold;'>{summary.get('top_merchant', 'N/A')}</div>", unsafe_allow_html=True)
+                    else:
+                        st.warning("No spending data found for this user.")
+                except Exception as e:
+                    st.error(f"Vector Analysis Error: {e}")
+    else:
+        st.info("Running localized security sweeps.")
+        # ── Anomaly Protocol: Instant local fraud scan ────────────────────────
+        if st.button("🔍 Execute Anomaly Protocol", use_container_width=True):
+            with st.spinner("Scanning for anomalies..."):
+                try:
+                    from agents.financial_advisor_agent import FinancialAdvisorAgent
+                    adv_local = FinancialAdvisorAgent()
+                    fraud = adv_local.tool_realtime_fraud_check(selected_user)
+                    monitor = adv_local.tool_suspicious_activity_monitor(selected_user)
 
-# ---------------------------------------------------------------------------
-# Tab 5: AI Financial Advisor (Enhanced)
-# ---------------------------------------------------------------------------
-def render_advisor_tab():
-    from agents.financial_advisor_agent import FinancialAdvisorAgent
+                    status_fraud = fraud.get("overall_status", "✅ CLEAR")
+                    status_monitor = monitor.get("overall_status", "✅ CLEAR")
+                    alert_count = fraud.get("alerts_found", 0) + monitor.get("alert_count", 0)
+                    avg_risk = fraud.get("avg_risk_score", 0)
 
-    st.markdown("### 💬 AI Financial Advisor")
-    st.caption("Detects fraud, advises on spending habits (coffee ☕ dining 🍽️ clubs 🎉 gambling 🎲), builds savings plans, and watches for suspicious activity in real time.")
+                    # Build concise ~150-word report from real data
+                    report_parts = [
+                        f"**Anomaly Detection Protocol — Complete**\n",
+                        f"**Fraud Scan:** {status_fraud}",
+                        f"**Activity Monitor:** {status_monitor}",
+                        f"**Transactions Scanned:** {fraud.get('transactions_scanned', 0)} | **Alerts Found:** {alert_count} | **Avg Risk Score:** {avg_risk:.3f}\n",
+                    ]
 
-    # ── User selector ──────────────────────────────────────────────────────
-    try:
-        agent = FinancialAdvisorAgent()
-        all_users = agent.get_all_users()
-    except Exception as e:
-        st.error(f"Could not load advisor: {e}")
-        return
+                    if fraud.get("alerts"):
+                        report_parts.append("**⚠️ Flagged Transactions:**")
+                        for a in fraud["alerts"][:5]:
+                            flags_str = ", ".join(a["flags"][:2])
+                            report_parts.append(f"- {a['merchant']} (${a['amount']}): {flags_str}")
+                    elif monitor.get("alerts"):
+                        report_parts.append("**⚠️ Suspicious Activity:**")
+                        for a in monitor["alerts"][:5]:
+                            report_parts.append(f"- {a['title']}: {a['detail']}")
 
-    selected_user = st.selectbox("👤 Select User:", all_users[:30], key="adv_user")
+                    st.markdown("\n".join(report_parts))
+                except Exception as e:
+                    st.error(f"Anomaly Protocol Error: {e}")
 
-    # ── REAL-TIME ALERT BANNER (always shown) ─────────────────────────────
-    try:
-        monitor = agent.tool_suspicious_activity_monitor(selected_user)
-        if monitor["alert_count"] > 0:
-            overall = monitor["overall_status"]
-            alert_html_parts = []
-            for a in monitor["alerts"][:4]:
-                sev_color = {"CRITICAL": "#dc2626", "HIGH": "#ea580c", "MEDIUM": "#d97706"}.get(a["severity"], "#64748b")
-                alert_html_parts.append(
-                    f"<div style='padding:0.5rem 0.75rem; background:rgba(255,255,255,0.6); border-left:4px solid {sev_color}; border-radius:4px; margin-bottom:0.4rem;'>"
-                    f"<strong>{a['emoji']} {a['title']}</strong><br>"
-                    f"<span style='font-size:0.85rem;color:#475569;'>{a['detail']}</span></div>"
-                )
-            alerts_html = "".join(alert_html_parts)
-            background = "linear-gradient(135deg,rgba(220,38,38,0.08),rgba(234,88,12,0.06))"
-            border = "#dc2626" if "CRITICAL" in overall else "#d97706"
-            st.markdown(
-                f"""<div style='background:{background};border:1px solid {border};border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem;'>
-                <div style='font-weight:700;font-size:1.05rem;margin-bottom:0.6rem;'>🔔 Live Activity Monitor — <span style='color:{border};'>{overall}</span></div>
-                {alerts_html}
-                </div>""",
-                unsafe_allow_html=True,
-            )
-        else:
-            st.success("✅ **Live Monitor:** No suspicious activity detected for this account.", icon="🛡️")
-    except Exception:
-        pass
 
-    st.divider()
-
-    # ── Suggested Questions ────────────────────────────────────────────────
-    st.markdown("#### 💡 Quick Questions")
-    q_cols = st.columns(4)
-    presets = [
-        ("📈 Month vs. Last",       "Am I spending more this month than last?"),
-        ("☕ Coffee habit tips",     "How can I save money on my coffee shop spending?"),
-        ("🎲 Gambling risks",       "What's the impact of my gambling spending? Give me advice."),
-        ("💰 Save money plan",      "How can I save more money based on my spending habits?"),
-        ("🍽️ Dining tips",          "Give me advice on my dining and restaurant spending."),
-        ("🎉 Club / bar advice",    "I spend a lot on clubs and entertainment, how to cut back?"),
-        ("🚨 Check for fraud",      "Are there any suspicious or fraudulent transactions on my account?"),
-        ("📊 Full spending chart",  "Show me a breakdown of my spending by category."),
-    ]
-    for i, (label, question) in enumerate(presets):
-        if q_cols[i % 4].button(label, key=f"adv_preset_{i}"):
-            st.session_state["adv_q"] = question
-
-    # ── Query Input ────────────────────────────────────────────────────────
-    user_q = st.text_input(
-        "Ask anything about your finances:",
-        value=st.session_state.pop("adv_q", ""),
-        placeholder="e.g. 'How do I save $200/month?' or 'Am I being defrauded?'",
-        key="adv_input",
-    )
-
-    if st.button("🧠 Ask Advisor", key="adv_submit", type="primary") and user_q:
-        with st.spinner("Analyzing your financial data…"):
-            result = agent.chat(user_q, selected_user)
-            reply        = result.get("reply", "")
-            tool_results = result.get("tool_results", [])
-            show_chart   = result.get("show_chart", False)
-
-        # ── Reply bubble ─────────────────────────────────────────────────
-        st.markdown(f"""
-        <div class='rag-answer' style='margin:1rem 0;'>
-            <div style='font-size:0.8rem;color:#64748b;margin-bottom:0.5rem;'>🤖 Advisor · {selected_user}</div>
-            {reply.replace(chr(10), "<br>")}
-        </div>""", unsafe_allow_html=True)
-
-        # ── Fraud alert details ───────────────────────────────────────────
-        fraud_result = next((r for r in tool_results if r.get("tool") == "realtime_fraud_check"), None)
-        if fraud_result and fraud_result.get("alerts"):
-            st.markdown("#### 🚨 Fraud Scan Details")
-            for a in fraud_result["alerts"][:6]:
-                sev_color = {"CRITICAL": "#dc2626", "HIGH": "#ea580c", "MEDIUM": "#d97706"}.get(a["severity"], "#64748b")
-                flags_text = "<br>".join(f"&nbsp;&nbsp;• {f}" for f in a["flags"])
-                st.markdown(f"""
-                <div class='feature-card' style='border-left:5px solid {sev_color};margin-bottom:0.6rem;padding:0.8rem 1rem;'>
-                    <div style='display:flex;justify-content:space-between;'>
-                        <strong>{a['merchant']}</strong>
-                        <span style='color:{sev_color};font-weight:700;'>{a['severity']}</span>
-                    </div>
-                    <div style='color:#475569;font-size:0.85rem;'>{a['transaction_date']} · ${a['amount']:.2f} · {a['category']}</div>
-                    <div style='margin-top:0.4rem;font-size:0.85rem;'>{flags_text}</div>
-                </div>""", unsafe_allow_html=True)
-
-        # ── On-demand vertical bar chart ──────────────────────────────────
-        if show_chart:
-            chart_data = agent.get_chart_data(selected_user)
-            if chart_data:
-                st.markdown("#### 📊 Spending by Category")
-                cat_df = pd.DataFrame(list(chart_data.items()), columns=["Category", "Amount ($)"])
-                fig = px.bar(
-                    cat_df, x="Category", y="Amount ($)",
-                    color="Amount ($)", color_continuous_scale="Blues",
-                    template="plotly_white",
-                    title=f"Total Spend per Category — {selected_user}",
-                )
-                fig.update_layout(
-                    xaxis_tickangle=-35,
-                    coloraxis_showscale=False,
-                    margin=dict(t=50, b=60),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(248,250,252,0.9)",
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-        # ── Tool call details (collapsed) ─────────────────────────────────
-        with st.expander("🔧 Tool Call Details"):
-            for r in tool_results:
-                st.json(r)
-
-    st.divider()
-
-    # ── Key Metrics (always visible, no chart) ────────────────────────────
-    st.markdown("#### 📋 Account Snapshot")
-    try:
-        summary = agent.tool_spending_summary(selected_user)
-        fraud_check = agent.tool_realtime_fraud_check(selected_user)
-
-        m1, m2, m3, m4 = st.columns(4)
-        m1.markdown(f"<div class='metric-card'><h3>Total Spend</h3><div class='value'>${summary.get('total_spend',0):,.0f}</div></div>", unsafe_allow_html=True)
-        m2.markdown(f"<div class='metric-card'><h3>Monthly Avg</h3><div class='value'>${summary.get('avg_monthly_spend',0):,.0f}</div></div>", unsafe_allow_html=True)
-        m3.markdown(f"<div class='metric-card'><h3>Fraud Alerts</h3><div class='value' style='color:{'#dc2626' if fraud_check.get('alerts_found',0) > 0 else '#16a34a'};'>{fraud_check.get('alerts_found',0)}</div></div>", unsafe_allow_html=True)
-        m4.markdown(f"<div class='metric-card'><h3>Archetype</h3><div class='value' style='font-size:1.1rem;'>{str(summary.get('archetype','—')).split('_')[0].title()}</div></div>", unsafe_allow_html=True)
-    except Exception as e:
-        st.warning(f"Snapshot unavailable: {e}")
 
 
 
@@ -820,20 +741,20 @@ def render_dna_tab():
             r=values + [values[0]],
             theta=labels + [labels[0]],
             fill="toself",
-            fillcolor="rgba(99, 102, 241, 0.25)",
-            line=dict(color="#6366f1", width=3),
+            fillcolor="rgba(79, 70, 229, 0.3)",
+            line=dict(color="#4338ca", width=4),
             name=selected,
         ))
         fig.update_layout(
             polar=dict(
-                radialaxis=dict(visible=True, range=[0, 1], tickfont=dict(size=10)),
-                angularaxis=dict(tickfont=dict(size=12, color="#0f172a")),
-                bgcolor="rgba(248,250,252,0.8)",
+                radialaxis=dict(visible=True, range=[0, 1], tickfont=dict(size=12, color="#0f172a", weight="bold")),
+                angularaxis=dict(tickfont=dict(size=13, color="#0f172a", weight="bold")),
+                bgcolor="rgba(248,250,252,1)",
             ),
             showlegend=False,
-            title=dict(text=f"🧬 {selected} — Spending DNA", font=dict(size=16, color="#0f172a")),
+            title=dict(text=f"🧬 {selected} — Spending DNA", font=dict(size=18, color="#0f172a", weight="bold")),
             paper_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=60, r=60, t=60, b=30),
+            margin=dict(l=70, r=70, t=70, b=40),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -899,23 +820,19 @@ def main():
     """, unsafe_allow_html=True)
 
     tabs = st.tabs([
+        "🤖 Omni-Agent AI",
         "📊 Market Dash",
-        "🔑 Auth Challenges",
         "🔍 CFPB Market Intel",
-        "🤖 Agentic Analyst",
-        "💬 AI Advisor",
         "🧬 Spending DNA",
     ])
 
-    fraud_df = load_fraud_data()
+    fraud_df = load_fraud_data(FEATURES_PATH, FEATURES_PATH.stat().st_mtime if FEATURES_PATH.exists() else 0)
     cfpb_df  = load_cfpb_data()
 
-    with tabs[0]: render_dashboard_tab(fraud_df)
-    with tabs[1]: render_auth_tab(fraud_df)
+    with tabs[0]: render_omni_tab()
+    with tabs[1]: render_dashboard_tab(fraud_df)
     with tabs[2]: render_cfpb_tab(cfpb_df)
-    with tabs[3]: render_agent_tab()
-    with tabs[4]: render_advisor_tab()
-    with tabs[5]: render_dna_tab()
+    with tabs[3]: render_dna_tab()
 
 if __name__ == "__main__":
     main()

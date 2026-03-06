@@ -49,7 +49,13 @@ class SynthesisAgent(BaseAgent):
 
         # 3. LLM Synthesis with History
         combined_context = "\n".join(context_parts)
-        prompt = f"""You are a Veriscan Security Analyst. Using the history and evidence, answer the user.
+        
+        # Diagnostic length enforcement (New Phase 10)
+        length_instr = ""
+        if "anomaly detection" in query.lower() or "detailed" in query.lower():
+            length_instr = " Please provide a comprehensive and detailed analytical report of at least 100 words."
+
+        prompt = f"""You are a Veriscan Security Analyst. Using the history and evidence, answer the user.{length_instr}
 
 Conversation History:
 {history}

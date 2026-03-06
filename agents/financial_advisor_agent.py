@@ -194,7 +194,7 @@ class FinancialAdvisorAgent:
         }
 
     def tool_credit_score_impact(self, user_id: str, target_category: str | None = None) -> dict[str, Any]:
-        """Estimate credit score impact of spending patterns."""
+        """Estimate credit score impact from spending patterns, utilization, and payment history."""
         user_df = self.df[self.df["user_id"] == user_id]
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
@@ -204,31 +204,69 @@ class FinancialAdvisorAgent:
         pos_ratio = impact_counts.get("positive", 0) / max(total, 1)
         neg_ratio = impact_counts.get("negative", 0) / max(total, 1)
 
+        # Credit Limit and Utilization Simulation
+        avg_monthly_spend = user_df.groupby("month_key")["amount"].sum().mean()
+        base_credit_limit = max(5000.0, avg_monthly_spend * 3)
+        utilization = avg_monthly_spend / base_credit_limit
+        
+        # Credit Score calculation
         base = 680
-        score_adj = round((pos_ratio * 60) - (neg_ratio * 80))
+        score_adj = round((pos_ratio * 40) - (neg_ratio * 60))
+        if utilization > 0.3:
+            score_adj -= round((utilization - 0.3) * 100)
+        
         estimated_score = base + score_adj
 
         result: dict[str, Any] = {
             "tool": "credit_score_impact",
             "user_id": user_id,
-            "positive_ratio": round(pos_ratio, 3),
-            "negative_ratio": round(neg_ratio, 3),
             "estimated_credit_score": min(850, max(580, estimated_score)),
-            "impact_breakdown": impact_counts,
+            "credit_limit": round(base_credit_limit, 2),
+            "utilization_pct": round(utilization * 100, 1),
+            "monthly_spend": round(avg_monthly_spend, 2)
         }
 
-        if target_category:
-            cat_df = user_df[user_df["category"].str.lower() == target_category.lower()]
-            cat_impact = cat_df["credit_score_impact_category"].mode().iloc[0] if not cat_df.empty else "neutral"
-            cat_spend = round(cat_df["amount"].sum(), 2)
-            result["target_category"] = target_category
-            result["target_category_impact"] = cat_impact
-            result["target_category_spend"] = cat_spend
-            result["recommendation"] = (
-                f"Reducing {target_category} spend could improve your score by ~15 pts."
-                if cat_impact == "negative"
-                else f"{target_category} has a {cat_impact} effect on your credit health."
-            )
+        # Analyze where to purchase and how much
+        high_risk_cats = user_df[user_df["credit_score_impact_category"] == "negative"]["category"].unique()
+        good_cats = user_df[user_df["credit_score_impact_category"] == "positive"]["category"].unique()
+        
+        # Calculate additional metrics for detailed analysis
+        num_months = max(len(user_df["month_key"].unique()), 1)
+        total_txns = len(user_df)
+        avg_txn = round(user_df["amount"].mean(), 2)
+        pos_count = impact_counts.get("positive", 0)
+        neg_count = impact_counts.get("negative", 0)
+        neutral_count = impact_counts.get("neutral", 0)
+        
+        good_cats_str = ", ".join(good_cats[:3]) if len(good_cats) > 0 else "Groceries, Utilities"
+        risk_cats_str = ", ".join(high_risk_cats[:3]) if len(high_risk_cats) > 0 else "Gambling, Cash advances"
+        
+        # Utilization advice
+        if utilization <= 0.1:
+            util_advice = "This is excellent and well below the recommended 30% threshold. Maintaining low utilization is one of the strongest contributors to a high credit score."
+        elif utilization <= 0.3:
+            util_advice = "This is within the healthy range. Aim to keep it below 30% consistently. Lenders view low utilization as a sign of responsible credit management."
+        else:
+            util_advice = f"This exceeds the recommended 30% threshold. Reducing your monthly spend by ${(avg_monthly_spend - base_credit_limit * 0.3):,.0f} would bring you into the optimal range and could boost your score by 20-40 points."
+        
+        result["recommendation"] = (
+            "**Credit Building Strategy:**\n\n"
+            f"**📊 Utilization Analysis**\n"
+            f"- You are using **{result['utilization_pct']}%** of your estimated **${result['credit_limit']:,.0f}** credit limit (spending ~${avg_monthly_spend:,.0f}/mo). {util_advice}\n\n"
+            f"**💳 Payment Discipline**\n"
+            f"- Always pay your **full statement balance** on or before the due date every month. Payment history accounts for approximately 35% of your credit score. Even a single missed payment can drop your score by 60-100 points and stays on your report for up to 7 years.\n\n"
+            f"**📈 Spending Mix Impact**\n"
+            f"- Out of **{total_txns}** transactions analyzed over {num_months} months (avg **${avg_txn}** per transaction), **{pos_count}** had a positive credit impact, **{neg_count}** had negative impact, and **{neutral_count}** were neutral.\n\n"
+            f"**✅ Where to Purchase**\n"
+            f"- Favor reliable, recurring merchants in stable categories like **{good_cats_str}**. Consistent, predictable spending patterns on essentials signal financial stability to credit bureaus.\n\n"
+            f"**⚠️ Categories to Minimize**\n"
+            f"- Reduce spending in **{risk_cats_str}**. These categories are flagged by credit models as high-risk and can negatively impact your score over time. Limit discretionary purchases in these areas.\n\n"
+            f"**🎯 Action Plan**\n"
+            f"1. Keep utilization under 30% by tracking your balance weekly.\n"
+            f"2. Set up autopay to never miss a due date.\n"
+            f"3. Redirect spending from high-risk categories to stable ones.\n"
+            f"4. Request a credit limit increase to naturally lower your utilization ratio."
+        )
         return result
 
     def tool_spending_summary(self, user_id: str) -> dict[str, Any]:
@@ -305,7 +343,7 @@ class FinancialAdvisorAgent:
     # ── NEW TOOL: Savings Plan ──────────────────────────────────────────────
 
     def tool_savings_plan(self, user_id: str) -> dict[str, Any]:
-        """Generate a personalized month-by-month savings plan based on spending habits."""
+        """Generate a personalized month-by-month savings plan for every single spending category."""
         user_df = self.df[self.df["user_id"] == user_id]
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
@@ -319,10 +357,11 @@ class FinancialAdvisorAgent:
             .to_dict()
         )
 
-        # Identify high-spend, high-reducible categories
         savings_opportunities = []
         total_potential_savings = 0.0
-        for cat, total in list(by_cat.items())[:8]:
+        
+        # Analyze ALL categories
+        for cat, total in by_cat.items():
             monthly = round(total / max(len(user_df["month_key"].unique()), 1), 2)
             reduction = 0.0
             tip = ""
@@ -349,6 +388,18 @@ class FinancialAdvisorAgent:
             elif any(k in cat_lower for k in ["gas", "fuel", "transport"]):
                 reduction = round(monthly * 0.15, 2)
                 tip = "Carpool + use GasBuddy"
+            elif any(k in cat_lower for k in ["grocery", "groceries"]):
+                reduction = round(monthly * 0.10, 2)
+                tip = "Use generic brands and buy in bulk"
+            elif any(k in cat_lower for k in ["utilities", "electric", "water"]):
+                reduction = round(monthly * 0.05, 2)
+                tip = "Use smart thermostat and energy-efficient bulbs"
+            elif any(k in cat_lower for k in ["healthcare", "medical", "pharmacy"]):
+                reduction = round(monthly * 0.05, 2)
+                tip = "Ask for generic prescriptions"
+            else:
+                reduction = round(monthly * 0.10, 2) # General 10% cut
+                tip = f"Review {cat} spend for strict 10% reduction"
 
             if reduction > 0:
                 savings_opportunities.append({
@@ -365,7 +416,7 @@ class FinancialAdvisorAgent:
             "monthly_avg_spend": monthly_avg,
             "potential_monthly_savings": round(total_potential_savings, 2),
             "potential_annual_savings": round(total_potential_savings * 12, 2),
-            "opportunities": savings_opportunities[:6],
+            "opportunities": savings_opportunities,  # Return ALL categories
             "archetype": user_df["archetype"].iloc[0] if "archetype" in user_df.columns else "unknown",
         }
 
@@ -560,13 +611,18 @@ class FinancialAdvisorAgent:
                 break
 
         # Savings plan
-        if any(k in msg for k in ["save money", "savings plan", "how to save", "budget", "save more", "cut back", "afford", "frugal"]):
+        if any(k in msg for k in ["save money", "savings plan", "savings strategy", "saving", "how to save", "budget", "save more", "cut back", "afford", "frugal", "financial plan", "spend", "optimize", "reduce spending"]):
             results.append(self.tool_savings_plan(user_id))
 
         # Real-time fraud detection
         if any(k in msg for k in ["fraud", "suspicious", "hacked", "stolen", "alert", "detect", "realtime", "real-time", "watch", "monitor", "flag", "scam"]):
             results.append(self.tool_realtime_fraud_check(user_id))
             results.append(self.tool_suspicious_activity_monitor(user_id))
+
+        # Path Analysis / Diagnostics (New Phase 10)
+        if any(k in msg for k in ["vector", "hierarchy", "waste vector", "path"]):
+            results.append(self.tool_spending_summary(user_id))
+            show_chart = True
 
         # Fallback: spending summary
         if not results:
@@ -582,95 +638,150 @@ class FinancialAdvisorAgent:
         }
 
     def _compose_reply(self, question: str, tool_results: list[dict]) -> str:
+        """Compose a detailed, professional reply."""
         parts = []
+        MAX_SECTIONS = 4  # Allow full detailed reports
+
         for r in tool_results:
+            if len(parts) >= MAX_SECTIONS:
+                break
             tool = r.get("tool", "")
             if "error" in r:
                 parts.append(f"⚠️ {r['error']}")
                 continue
 
-            if tool == "monthly_comparison":
-                trend = r.get("trend", "")
-                chg = r.get("change_pct", 0)
+            if tool == "spending_summary":
+                cats = ", ".join(list(r['top_categories'].keys())[:4])
                 parts.append(
-                    f"**Monthly Comparison** {trend}\n"
-                    f"You spent **${r['current_spend']:,.2f}** in {r['current_month']} vs "
-                    f"**${r['previous_spend']:,.2f}** in {r['previous_month']} "
-                    f"({'↑' if chg > 0 else '↓'}{abs(chg):.1f}%).\n"
-                    f"Top categories: {', '.join(f'{k} (${v:,.0f})' for k,v in list(r['top_categories_this_month'].items())[:3])}."
+                    f"**📊 Your Spending Overview**\n\n"
+                    f"Total spend: **${r['total_spend']:,.2f}** | Monthly avg: **${r['avg_monthly_spend']:,.2f}**\n\n"
+                    f"Archetype: *{r['archetype'].replace('_', ' ').title()}* | Top merchant: {r['top_merchant']}\n\n"
+                    f"Top categories: {cats}"
+                )
+
+            elif tool == "monthly_comparison":
+                chg = r.get("change_pct", 0)
+                arrow = "↑" if chg > 0 else "↓"
+                top_cats = ", ".join(f"{k} (${v:,.0f})" for k, v in list(r['top_categories_this_month'].items())[:3])
+                parts.append(
+                    f"**📈 Monthly Comparison** {'📉 DOWN' if chg < 0 else '📈 UP'}\n\n"
+                    f"You spent **${r['current_spend']:,.2f}** in {r['current_month']} vs **${r['previous_spend']:,.2f}** in {r['previous_month']} ({arrow}{abs(chg):.1f}%).\n\n"
+                    f"Top categories: {top_cats}"
                 )
 
             elif tool == "find_cancellable_subscriptions":
-                subs = r.get("recommended_cancellations", [])
+                subs = r.get("recommended_cancellations", [])[:3]
                 if subs:
-                    sub_list = "\n".join(f"  • **{s['merchant']}** — ${s['monthly_cost']:.2f}/mo (${s['annual_cost']:.2f}/yr)" for s in subs)
+                    sub_lines = "\n".join(f"  - **{s['merchant']}** — ${s['monthly_cost']:.2f}/mo (${s['annual_cost']:,.2f}/yr)" for s in subs)
                     parts.append(
-                        f"**💡 Subscription Optimizer**\n"
-                        f"Cancel these to save **${r['projected_monthly_savings']:.2f}/month**:\n{sub_list}"
+                        f"**💡 Subscription Optimizer**\n\n"
+                        f"Cancel these to save **${r['projected_monthly_savings']:.2f}/month**:\n\n{sub_lines}"
                     )
 
             elif tool == "credit_score_impact":
                 score = r.get("estimated_credit_score", 0)
                 badge = "🟢" if score >= 740 else ("🟡" if score >= 670 else "🔴")
                 parts.append(
-                    f"**Credit Score Estimate** {badge} **~{score}**\n"
-                    f"Positive habits: {r['positive_ratio']:.0%} of transactions | "
-                    f"Negative: {r['negative_ratio']:.0%}.\n"
-                    + (r.get("recommendation", ""))
+                    f"**💳 Credit Score Analysis** {badge} **{score}**\n\n"
+                    f"{r.get('recommendation', '')}"
                 )
-
-            elif tool == "spending_summary":
-                parts.append(
-                    f"**Your Spending Overview 📊**\n"
-                    f"Total spend: **${r['total_spend']:,.2f}** | Monthly avg: **${r['avg_monthly_spend']:,.2f}**\n"
-                    f"Archetype: *{r['archetype']}* | Top merchant: {r['top_merchant']}\n"
-                    f"Top categories: {', '.join(list(r['top_categories'].keys())[:4])}."
-                )
-
-            elif tool == "category_advice":
-                label = r["label"]
-                tips = "\n".join(f"  {i+1}. {t}" for i, t in enumerate(r["tips"]))
-                risk_badge = {"low": "🟢 LOW", "medium": "🟡 MEDIUM", "high": "🔴 HIGH", "critical": "🚨 CRITICAL"}.get(r["risk_level"], "⚪")
-                reply_text = (
-                    f"**{label} — Spending Advice**\n"
-                    f"Your spend in this category: **${r['user_spend']:,.2f}**\n"
-                    f"Estimated annual waste: *{r['annual_waste_estimate']}*\n"
-                    f"Risk level: {risk_badge}\n\n"
-                    f"**💡 Tips to save:**\n{tips}"
-                )
-                if r.get("warning"):
-                    reply_text += f"\n\n{r['warning']}"
-                parts.append(reply_text)
 
             elif tool == "savings_plan":
                 ops = r.get("opportunities", [])
-                savings_list = "\n".join(
-                    f"  • **{o['category']}** — Cut ${o['potential_saving']:.2f}/mo ({o['tip']})"
-                    for o in ops
+                ops.sort(key=lambda x: x["potential_saving"], reverse=True)
+                archetype = r.get("archetype", "unknown").replace("_", " ").title()
+                monthly_avg = r.get("monthly_avg_spend", 0)
+                monthly_save = r.get("potential_monthly_savings", 0)
+                annual_save = r.get("potential_annual_savings", 0)
+
+                # --- Header ---
+                header = (
+                    f"**💰 Comprehensive Savings Strategy**\n\n"
+                    f"Based on your **{archetype}** spending profile, your average monthly expenditure "
+                    f"is **${monthly_avg:,.2f}**. After analyzing every category in your transaction history, "
+                    f"we have identified a realistic savings target of **${monthly_save:,.2f}/month** "
+                    f"(**${annual_save:,.0f}/year**). Below is a detailed, category-by-category breakdown "
+                    f"with professional recommendations.\n"
                 )
+
+                # --- High-Impact Categories (top 3) ---
+                high_impact = ops[:3]
+                high_lines = "\n".join(
+                    f"  - **{o['category']}** — You spend **${o['monthly_spend']:,.2f}/mo**. "
+                    f"Reduce by **${o['potential_saving']:.2f}/mo** by: *{o['tip']}*."
+                    for o in high_impact
+                )
+                high_section = f"\n**🔴 High-Impact Categories (Biggest Savings)**\n\n{high_lines}\n" if high_impact else ""
+
+                # --- Everyday Essentials ---
+                everyday_keys = ["grocery", "groceries", "gas", "fuel", "utilities", "electric", "water", "healthcare", "medical"]
+                everyday = [o for o in ops[3:] if any(k in o["category"].lower() for k in everyday_keys)]
+                everyday_lines = "\n".join(
+                    f"  - **{o['category']}** — ${o['monthly_spend']:,.2f}/mo → Save ${o['potential_saving']:.2f}/mo. *{o['tip']}*."
+                    for o in everyday
+                )
+                everyday_sum = sum(o["potential_saving"] for o in everyday)
+                everyday_section = (
+                    f"\n**🟢 Everyday Essentials (Total: ${everyday_sum:.2f}/mo)**\n\n"
+                    f"These are necessary expenses but still have room for optimization:\n\n{everyday_lines}\n"
+                ) if everyday else ""
+
+                # --- Subscriptions ---
+                subs = [o for o in ops[3:] if "subscription" in o["category"].lower()]
+                sub_sum = sum(o["potential_saving"] for o in subs)
+                sub_lines = "\n".join(
+                    f"  - **{o['category']}** — ${o['monthly_spend']:,.2f}/mo → Save ${o['potential_saving']:.2f}/mo. *{o['tip']}*."
+                    for o in subs
+                )
+                sub_section = (
+                    f"\n**📦 Subscriptions & Recurring (Total: ${sub_sum:.2f}/mo)**\n\n"
+                    f"Recurring charges are often overlooked. Audit each one:\n\n{sub_lines}\n"
+                ) if subs else ""
+
+                # --- Discretionary / Other ---
+                others = [o for o in ops[3:] if o not in everyday and o not in subs]
+                other_sum = sum(o["potential_saving"] for o in others)
+                other_lines = "\n".join(
+                    f"  - **{o['category']}** — ${o['monthly_spend']:,.2f}/mo → Save ${o['potential_saving']:.2f}/mo. *{o['tip']}*."
+                    for o in others
+                )
+                other_section = (
+                    f"\n**🟡 Discretionary & Lifestyle (Total: ${other_sum:.2f}/mo)**\n\n"
+                    f"Non-essential spending where budgeting discipline pays off:\n\n{other_lines}\n"
+                ) if others else ""
+
+                # --- Action Plan ---
+                action = (
+                    f"\n**✅ Action Plan**\n\n"
+                    f"1. **Immediate:** Focus on **{high_impact[0]['category']}** and **{high_impact[1]['category'] if len(high_impact) > 1 else 'subscriptions'}** — these two alone account for the largest portion of your potential savings.\n"
+                    f"2. **This Month:** Audit all subscriptions and cancel any you have not used in the last 30 days.\n"
+                    f"3. **Ongoing:** Track spending weekly using a budgeting app. Set category-level spending caps based on the targets above.\n"
+                    f"4. **Goal:** Redirect the saved **${monthly_save:,.2f}/mo** into an emergency fund or high-yield savings account to build **${annual_save:,.0f}** in annual wealth.\n"
+                )
+
+                parts.append(header + high_section + everyday_section + sub_section + other_section + action)
+
+            elif tool == "category_advice":
+                tips = "\n".join(f"  - {t}" for t in r["tips"][:3])
+                risk_badge = {"low": "🟢", "medium": "🟡", "high": "🔴", "critical": "🚨"}.get(r["risk_level"], "⚪")
                 parts.append(
-                    f"**💰 Personalized Savings Plan**\n"
-                    f"Based on your *{r['archetype']}* spending archetype, here's how to save "
-                    f"**${r['potential_monthly_savings']:.2f}/month** (${r['potential_annual_savings']:,.0f}/year):\n\n"
-                    f"{savings_list}"
+                    f"**{r['label']}** {risk_badge}\n\n"
+                    f"Your spend: **${r['user_spend']:,.2f}** | Annual waste: *{r['annual_waste_estimate']}*\n\n"
+                    f"Tips:\n{tips}"
                 )
 
             elif tool == "realtime_fraud_check":
-                alerts = r.get("alerts", [])
-                status = r["overall_status"]
-                parts.append(f"**🔍 Real-Time Fraud Scan**\nScanned {r['transactions_scanned']} recent transactions. {status}")
-                if alerts:
-                    for a in alerts[:5]:
-                        flags = " | ".join(a["flags"][:2])
-                        parts.append(f"  • `{a['transaction_date']}` — **{a['merchant']}** ${a['amount']:.2f} → {flags}")
+                parts.append(
+                    f"**🔍 Fraud Scan**\n\n"
+                    f"{r['overall_status']}\n\n"
+                    f"Scanned: {r['transactions_scanned']} transactions | Alerts: {r['alerts_found']}"
+                )
 
             elif tool == "suspicious_activity_monitor":
-                status = r["overall_status"]
-                parts.append(f"**👁️ Suspicious Activity Monitor** — {status}")
-                for a in r.get("alerts", []):
-                    parts.append(f"  {a['emoji']} **{a['title']}**: {a['detail']}")
+                parts.append(f"**👁️ Activity Monitor**\n\n{r['overall_status']}")
 
-        return "\n\n".join(parts) if parts else "I couldn't find relevant insights. Try asking about fraud, spending categories, or savings."
+        return "\n\n---\n\n".join(parts) if parts else "No insights found for your query. Try asking about spending, savings, or fraud detection."
+
 
     def get_all_users(self) -> list[str]:
         return sorted(self.df["user_id"].unique().tolist())

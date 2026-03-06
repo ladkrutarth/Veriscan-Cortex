@@ -191,3 +191,39 @@ class DNACompareResponse(BaseModel):
     composite_deviation: float
     session_trust_score: float
     verdict: str
+
+
+# ---------------------------------------------------------------------------
+# Feature 3: Omni-Agent Intelligence
+# ---------------------------------------------------------------------------
+
+class OmniChatRequest(BaseModel):
+    """Unified request for multi-agent financial and security reasoning."""
+    user_id: str = Field(..., example="USER_0001")
+    message: str = Field(..., example="Check my recent transactions for fraud and suggest a budget.")
+
+
+class OmniChatResponse(BaseModel):
+    """Consolidated response from the SupremeOmniAgent orchestrator."""
+    user_id: str
+    reply: str
+    actions: List[AgentActionStep]
+    status: str
+    session_id: Optional[str] = None
+    domain: str = Field(..., description="The primary domain detected: 'security', 'financial', or 'hybrid'")
+    show_chart: bool = False
+    chart_data: Dict[str, float] = {}
+
+
+class SecurityChatRequest(BaseModel):
+    """Request strictly for the Security Analyst."""
+    message: str = Field(..., example="Scan my account for fraud anomalies.")
+    session_id: Optional[str] = None
+
+
+class SecurityChatResponse(BaseModel):
+    """Response strictly from the Security Analyst."""
+    reply: str
+    actions: List[AgentActionStep]
+    status: str
+    session_id: Optional[str] = None

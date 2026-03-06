@@ -26,11 +26,11 @@ The name **Veriscan** represents the fusion of two core security principles:
 - **VERI** (*Verification & Veracity*): A commitment to absolute identity truth through dynamic authentication and data-backed evidence.
 - **SCAN** (*Scanning & Surveillance*): The power of autonomous agentic "scans" that explore transaction history, risk profiles, and now personalized financial advice.
 
-### 🌟 Premium AI Features (New)
-The dashboard has been expanded with advanced, real-time AI agents:
-1. **🤖 AI Financial Advisor**: A multi-tool agent for real-time fraud detection, category-specific savings (coffee, dining, clubs, gambling), and personalized savings plans.
-2. **🧬 Spending DNA**: An 8-axis behavioral fingerprinting system for advanced identity verification and trust scoring.
-3. **📊 Real-time Monitoring**: Always-on account surveillance for velocity spikes, late-night clusters, and high-risk merchants.
+### 🌟 Premium AI Specialized Agents
+The dashboard features a dual-model specialization for mission-critical tasks:
+1. **🛡️ Security AI Analyst**: Dedicated to real-time fraud detection, system shield monitoring, and anomaly detection protocols.
+2. **💰 Financial AI Advisor**: A high-fidelity agent that provides comprehensive (>300 word) advisory reports on credit health, savings plans, and spending optimization.
+3. **🧬 Spending DNA**: An 8-axis behavioral fingerprinting system for advanced identity verification and trust scoring.
 
 
 ## Visual Architecture
@@ -40,26 +40,25 @@ Veriscan-Cortex works like a professional security team. Instead of one slow AI 
 
 ```mermaid
 graph TD
-    User([User Question]) --> Guard{🛡️ GuardAgent}
-    Guard -->|Simple Data| Specialist[⚡ Fast Specialist]
-    Guard -->|Complex Task| Brain[🧠 Synthesis Brain]
+    User([User Query]) --> ModelSelector{🔍 Model Selection}
     
-    Specialist -->|Instant| Report[Security Report]
-    Brain -->|Reasoning| Report
-    
-    subgraph Specialists [Quick Response Team]
-        Scanner[🔍 System Scanner]
-        Profile[👤 User Investigator]
-        Knowledge[📚 Policy Expert]
-    end
-    
-    subgraph Core [The Deep Thinker]
-        Synthesis[🎭 Synthesis Agent]
-        Memory[💾 Conversation Memory]
+    ModelSelector -->|Security Mode| SecAnalyst[🛡️ Security AI Analyst]
+    ModelSelector -->|Financial Mode| FinAdvisor[💰 Financial AI Advisor]
+
+    subgraph Security_Domain [Security Intelligence]
+        SecAnalyst --> Scanner[🔍 System Scanner]
+        SecAnalyst --> Profile[👤 User Investigator]
+        Scanner --> Shield[🛡️ Shield Monitor]
     end
 
-    Guard -.-> Specialists
-    Synthesis -.-> Core
+    subgraph Financial_Domain [Advisory Intelligence]
+        FinAdvisor --> Credit[💳 Credit Impact]
+        FinAdvisor --> Savings[💰 Savings Plan]
+        FinAdvisor --> Vector[📈 Vector Analysis]
+    end
+
+    Security_Domain --> Report[Detailed Security Audit]
+    Financial_Domain --> Report2[300+ Word Advisory Report]
 ```
 
 #### 🧩 The Roles:
@@ -87,27 +86,28 @@ graph LR
         CFPB[(CFPB Complaints)]
     end
 
+    subgraph Specialized_Models [AI Brains]
+        SEC[🛡️ Security Analyst]
+        FIN[💰 Financial Advisor]
+    end
+
     subgraph VectorDB [Semantic Memory]
         Embed[all-MiniLM-L6-v2]
         Chroma[(ChromaDB)]
     end
 
-    subgraph Retrieval [Augmented Generation]
-        Query([User Query])
-        Search{Vector Search}
-        Context[Fused Context]
-        LLM[Llama-3 Reasoning]
+    subgraph UI [Premium UX]
+        Chart[📈 Sunset Charts]
+        Text[⬛ Black-Text Labels]
     end
 
     TXN --> Embed
     CFPB --> Embed
-    EXPERT[Expert Fraud QA] --> Embed
     Embed --> Chroma
-    Query --> Search
-    Chroma --> Search
-    Search --> Context
-    Context --> LLM
-    LLM --> Answer([Final Response])
+    SEC --> VectorDB
+    FIN --> VectorDB
+    SEC --> UI
+    FIN --> UI
 ```
 
 ### 🛡️ Hybrid Fraud Intelligence (ML + Heuristics)

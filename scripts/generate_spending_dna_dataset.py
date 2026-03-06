@@ -31,7 +31,7 @@ np.random.seed(7)
 
 # ── Config ──────────────────────────────────────────────────────────────────
 N_USERS = 150
-TARGET_ROWS = 10_000
+TARGET_ROWS = 50_000
 
 CATEGORIES = [
     "Groceries", "Dining", "Entertainment", "Subscriptions", "Travel",
@@ -58,11 +58,16 @@ RISK_WEIGHTS = {
 }
 
 CITIES = [
-    ("Houston", "TX"), ("Austin", "TX"), ("Dallas", "TX"),
-    ("Los Angeles", "CA"), ("San Francisco", "CA"),
-    ("New York", "NY"), ("Chicago", "IL"),
-    ("Seattle", "WA"), ("Phoenix", "AZ"), ("Miami", "FL"),
-    ("Denver", "CO"), ("Atlanta", "GA"),
+    ("Birmingham", "AL"), ("Anchorage", "AK"), ("Phoenix", "AZ"), ("Little Rock", "AR"), ("Los Angeles", "CA"),
+    ("Denver", "CO"), ("Hartford", "CT"), ("Wilmington", "DE"), ("Miami", "FL"), ("Atlanta", "GA"),
+    ("Honolulu", "HI"), ("Boise", "ID"), ("Chicago", "IL"), ("Indianapolis", "IN"), ("Des Moines", "IA"),
+    ("Wichita", "KS"), ("Louisville", "KY"), ("New Orleans", "LA"), ("Portland", "ME"), ("Baltimore", "MD"),
+    ("Boston", "MA"), ("Detroit", "MI"), ("Minneapolis", "MN"), ("Jackson", "MS"), ("Kansas City", "MO"),
+    ("Billings", "MT"), ("Omaha", "NE"), ("Las Vegas", "NV"), ("Manchester", "NH"), ("Newark", "NJ"),
+    ("Albuquerque", "NM"), ("New York", "NY"), ("Charlotte", "NC"), ("Fargo", "ND"), ("Columbus", "OH"),
+    ("Oklahoma City", "OK"), ("Portland", "OR"), ("Philadelphia", "PA"), ("Providence", "RI"), ("Charleston", "SC"),
+    ("Sioux Falls", "SD"), ("Nashville", "TN"), ("Houston", "TX"), ("Salt Lake City", "UT"), ("Burlington", "VT"),
+    ("Virginia Beach", "VA"), ("Seattle", "WA"), ("Charleston", "WV"), ("Milwaukee", "WI"), ("Cheyenne", "WY")
 ]
 
 MERCHANTS_BY_CATEGORY = {
@@ -83,11 +88,11 @@ MERCHANTS_BY_CATEGORY = {
 }
 
 
-def build_user_dna(user_id: str) -> dict:
+def build_user_dna(user_id: str, city_override: tuple = None) -> dict:
     """Generate a stable per-user DNA fingerprint."""
     return {
         "user_id":              user_id,
-        "primary_city":        random.choice(CITIES),
+        "primary_city":        city_override if city_override else random.choice(CITIES),
         "avg_txn_amount":      round(np.random.lognormal(4.2, 0.7), 2),   # ~$67 median
         "location_entropy":    round(random.uniform(0.1, 2.8), 4),
         "weekend_ratio":       round(random.uniform(0.1, 0.65), 4),
@@ -107,9 +112,9 @@ def hour_from_pref(pref: int) -> int:
 
 
 def generate_session_row(dna: dict, is_anomalous: bool = False) -> dict:
-    # Transaction date within 2024
-    base = datetime(2024, 1, 1)
-    txn_date = base + timedelta(days=random.randint(0, 364), hours=random.randint(0, 23))
+    # Transaction date within past 730 days
+    now = datetime.now()
+    txn_date = now - timedelta(days=random.randint(0, 729), hours=random.randint(0, 23))
     is_weekend = txn_date.weekday() >= 5
 
     # Location — anomalous sessions drift to new city
@@ -187,7 +192,7 @@ def generate_session_row(dna: dict, is_anomalous: bool = False) -> dict:
 
 
 def build_dataset() -> pd.DataFrame:
-    dna_profiles = [build_user_dna(f"USER_{i:04d}") for i in range(N_USERS)]
+    dna_profiles = [build_user_dna(f"USER_{i:04d}", city_override=CITIES[i % len(CITIES)]) for i in range(N_USERS)]
     rows_per_user = TARGET_ROWS // N_USERS
     rows = []
 
@@ -204,7 +209,7 @@ def build_dataset() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    print("🔄 Generating Spending DNA dataset (10,000 rows)…")
+    print("🔄 Generating Spending DNA dataset (25,000 rows)…")
     df = build_dataset()
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT_PATH, index=False)

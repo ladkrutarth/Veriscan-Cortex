@@ -78,14 +78,25 @@ REGULAR_MERCHANTS = {
     "Online Shopping":  ["Amazon", "eBay", "Etsy", "Wayfair", "Target"],
 }
 
-STATES = ["TX", "CA", "FL", "NY", "IL", "WA", "AZ", "GA", "OH", "NC", "PA", "CO"]
+STATES = [
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", 
+    "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", 
+    "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", 
+    "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", 
+    "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
+]
 
-def generate_user_profile(user_id: str) -> dict:
+FIRST_NAMES = ["James", "Mary", "Robert", "Patricia", "John", "Jennifer", "Michael", "Linda", "William", "Elizabeth"]
+LAST_NAMES = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
+
+def generate_user_profile(user_id: str, state_override: str = None) -> dict:
     archetype_name = random.choice(list(USER_ARCHETYPES.keys()))
     arch = USER_ARCHETYPES[archetype_name]
-    state = random.choice(STATES)
+    state = state_override if state_override else random.choice(STATES)
     return {
         "user_id": user_id,
+        "first": random.choice(FIRST_NAMES),
+        "last": random.choice(LAST_NAMES),
         "archetype": archetype_name,
         "base_spend": arch["base"],
         "std_spend": arch["std"],
@@ -96,20 +107,21 @@ def generate_user_profile(user_id: str) -> dict:
 
 def generate_rows(n_users: int = 200, target_rows: int = 10_000) -> pd.DataFrame:
     rows = []
-    users = [generate_user_profile(f"USER_{i:04d}") for i in range(n_users)]
+    users = [generate_user_profile(f"USER_{i:04d}", state_override=STATES[i % len(STATES)]) for i in range(n_users)]
 
     # Distribute rows proportionally across users
     rows_per_user = target_rows // n_users
 
-    base_date = datetime(2024, 1, 1)
+    # Start date 2 years ago
+    base_date = datetime.now() - timedelta(days=730)
 
     for user in users:
         # Monthly totals tracker for prev/curr comparison
         monthly_totals: dict[str, float] = {}
 
         for _ in range(rows_per_user):
-            # Pick a random date in the past 12 months
-            days_offset = random.randint(0, 364)
+            # Pick a random date in the past 24 months
+            days_offset = random.randint(0, 729)
             txn_date = base_date + timedelta(days=days_offset)
             month_key = txn_date.strftime("%Y-%m")
 
@@ -143,8 +155,17 @@ def generate_rows(n_users: int = 200, target_rows: int = 10_000) -> pd.DataFrame
             # Spending velocity: transactions in last 7 days (simulated)
             velocity_7d = random.randint(2, 18)
 
+            # Fraud simulation - ensures every state gets some fraud by using a baseline probability
+            # and a state-specific seed boost
+            state_seed = sum(ord(c) for c in user["state"]) % 100
+            fraud_threshold = 0.04 + (state_seed / 5000) # Base 4% + state-specific variance
+            is_fraud_flag = random.random() < fraud_threshold
+            risk_score = round(random.uniform(0.7, 0.99) if is_fraud_flag else random.uniform(0.01, 0.45), 3)
+
             rows.append({
                 "user_id":                    user["user_id"],
+                "first":                      user["first"],
+                "last":                       user["last"],
                 "archetype":                  user["archetype"],
                 "state":                      user["state"],
                 "transaction_date":           txn_date.strftime("%Y-%m-%d"),
@@ -162,6 +183,8 @@ def generate_rows(n_users: int = 200, target_rows: int = 10_000) -> pd.DataFrame
                 "avg_monthly_spend":          avg_monthly,
                 "credit_score_impact_category": CATEGORY_CREDIT_IMPACT.get(category, "neutral"),
                 "spending_velocity_7d":       velocity_7d,
+                "is_fraud_flag":              is_fraud_flag,
+                "risk_score":                 risk_score,
             })
 
     df = pd.DataFrame(rows)
@@ -173,8 +196,8 @@ def generate_rows(n_users: int = 200, target_rows: int = 10_000) -> pd.DataFrame
 
 
 if __name__ == "__main__":
-    print("🔄 Generating AI Financial Advisor dataset (10,000 rows)…")
-    df = generate_rows(n_users=200, target_rows=10_000)
+    print("🔄 Generating AI Financial Advisor dataset (50,000 rows)…")
+    df = generate_rows(n_users=200, target_rows=50_000)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUTPUT_PATH, index=False)
     print(f"✅ Saved {len(df):,} rows → {OUTPUT_PATH}")
