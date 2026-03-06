@@ -27,14 +27,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from api.schemas import (
     HighRiskTransactionsResponse,
     UserRiskResponse,
-    AgentInvestigationRequest,
-    AgentInvestigationResponse,
     AgentActionStep,
     RAGQueryRequest,
     RAGQueryResponse,
     RAGResult,
-    LLMGenerationRequest,
-    LLMGenerationResponse,
     HealthResponse,
     # Feature: Financial Advisor
     AdvisorChatRequest,
@@ -43,8 +39,6 @@ from api.schemas import (
     SpendingDNAResponse,
     DNACompareRequest,
     DNACompareResponse,
-    OmniChatRequest,
-    OmniChatResponse,
     SecurityChatRequest,
     SecurityChatResponse,
 )
@@ -154,41 +148,6 @@ async def get_user_risk(user_id: str):
     return UserRiskResponse(**result)
 
 
-# ---------------------------------------------------------------------------
-# 5. Agent Investigation
-# ---------------------------------------------------------------------------
-@app.post("/api/agent/investigate", response_model=AgentInvestigationResponse, tags=["Agentic AI"])
-async def agent_investigate(req: AgentInvestigationRequest):
-    """Run a full GuardAgent agentic investigation."""
-    if not _agent:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "GuardAgent not loaded. It requires Apple Silicon (M1/M2/M3) and MLX. "
-                "Use the RAG Knowledge Search tab for semantic search, or run the API on a Mac with Apple Silicon to enable agent investigations."
-            ),
-        )
-
-    raw = _agent.analyze(req.query, session_id=req.session_id)
-
-    actions = []
-    for a in raw.get("actions", []):
-        actions.append(
-            AgentActionStep(
-                step=a.get("step", 0),
-                tool=a.get("tool", "unknown"),
-                args=a.get("args", {}),
-                result=a.get("result"),
-            )
-        )
-
-    return AgentInvestigationResponse(
-        answer=raw.get("answer", "No answer produced."),
-        actions=actions,
-        status=raw.get("status", "unknown"),
-        session_id=raw.get("session_id"),
-        trace=raw.get("trace")
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -214,21 +173,6 @@ async def rag_query(req: RAGQueryRequest):
     return RAGQueryResponse(query=req.query, count=len(parsed), results=parsed)
 
 
-# ---------------------------------------------------------------------------
-# 7. Simple LLM Generation
-# ---------------------------------------------------------------------------
-@app.post("/api/llm/generate", response_model=LLMGenerationResponse, tags=["AI Core"])
-async def generate_text(req: LLMGenerationRequest):
-    """Perform raw text generation using the local MLX LLM."""
-    if not _agent:
-        raise HTTPException(status_code=503, detail="Local LLM / GuardAgent not loaded.")
-
-    # Access the underlying LocalLLM from the agent
-    try:
-        response = _agent.llm.generate(req.prompt, max_tokens=req.max_tokens, temp=req.temp)
-        return LLMGenerationResponse(prompt=req.prompt, response=response)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
 
 
 # ===========================================================================
@@ -326,34 +270,3 @@ async def compare_dna(req: DNACompareRequest):
     return {"users": SpendingDNAAgent().get_all_users()}
 
 
-# ---------------------------------------------------------------------------
-# Feature 3: Omni-Agent Intelligence
-# ---------------------------------------------------------------------------
-@app.post("/api/omni/chat", response_model=OmniChatResponse, tags=["Omni-Agent Intelligence"])
-async def omni_chat(req: OmniChatRequest):
-    """SupremeOmniAgent — Handled unified security and financial requests."""
-    from agents.omni_agent import SupremeOmniAgent
-    agent = SupremeOmniAgent()
-    result = agent.chat(req.user_id, req.message)
-    
-    # Map actions to AgentActionStep schema
-    actions = []
-    for a in result.get("actions", []):
-        actions.append(
-            AgentActionStep(
-                step=a.get("step", 0),
-                tool=a.get("tool", "unknown"),
-                args=a.get("args", {}),
-                result=str(a.get("result", ""))
-            )
-        )
-        
-    return OmniChatResponse(
-        user_id=req.user_id,
-        reply=result.get("reply", ""),
-        actions=actions,
-        status=result.get("status", "success"),
-        domain=result.get("domain", "hybrid"),
-        show_chart=result.get("show_chart", False),
-        chart_data=result.get("chart_data", {})
-    )

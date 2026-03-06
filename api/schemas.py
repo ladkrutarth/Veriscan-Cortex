@@ -61,14 +61,8 @@ class UserRiskResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Agent Investigation
+# Shared Agent Models
 # ---------------------------------------------------------------------------
-
-class AgentInvestigationRequest(BaseModel):
-    """Request for an agentic investigation."""
-    query: str = Field(..., example="Investigate risk for USER_001")
-    session_id: Optional[str] = Field(None, example="user_session_123")
-
 
 class AgentActionStep(BaseModel):
     """A single step in the agent's reasoning trace."""
@@ -76,15 +70,6 @@ class AgentActionStep(BaseModel):
     tool: str
     args: Dict[str, Any]
     result: Optional[str] = None
-
-
-class AgentInvestigationResponse(BaseModel):
-    """Response from the agent investigation endpoint."""
-    answer: str
-    actions: List[AgentActionStep]
-    status: str
-    session_id: Optional[str] = None
-    trace: Optional[List[str]] = None
 
 
 # ---------------------------------------------------------------------------
@@ -111,21 +96,6 @@ class RAGQueryResponse(BaseModel):
     results: List[RAGResult]
 
 
-# ---------------------------------------------------------------------------
-# Simple LLM Generation
-# ---------------------------------------------------------------------------
-
-class LLMGenerationRequest(BaseModel):
-    """Request for raw LLM text generation."""
-    prompt: str = Field(..., example="Explain credit card fraud.")
-    max_tokens: int = Field(default=256, ge=16, le=2048)
-    temp: float = Field(default=0.0, ge=0.0, le=1.0)
-
-
-class LLMGenerationResponse(BaseModel):
-    """Response with generated text."""
-    prompt: str
-    response: str
 
 
 # ---------------------------------------------------------------------------
@@ -193,26 +163,6 @@ class DNACompareResponse(BaseModel):
     verdict: str
 
 
-# ---------------------------------------------------------------------------
-# Feature 3: Omni-Agent Intelligence
-# ---------------------------------------------------------------------------
-
-class OmniChatRequest(BaseModel):
-    """Unified request for multi-agent financial and security reasoning."""
-    user_id: str = Field(..., example="USER_0001")
-    message: str = Field(..., example="Check my recent transactions for fraud and suggest a budget.")
-
-
-class OmniChatResponse(BaseModel):
-    """Consolidated response from the SupremeOmniAgent orchestrator."""
-    user_id: str
-    reply: str
-    actions: List[AgentActionStep]
-    status: str
-    session_id: Optional[str] = None
-    domain: str = Field(..., description="The primary domain detected: 'security', 'financial', or 'hybrid'")
-    show_chart: bool = False
-    chart_data: Dict[str, float] = {}
 
 
 class SecurityChatRequest(BaseModel):

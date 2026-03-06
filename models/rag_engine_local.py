@@ -37,18 +37,6 @@ class RAGEngineLocal:
 
         print("⚡ Indexing local knowledge base...")
         
-        # 1. Index Transactions (as demonstration of local data)
-        txn_path = PROJECT_ROOT / "dataset" / "csv_data" / "processed_fraud_train.csv"
-        if txn_path.exists():
-            print(f"Indexing transactions from {txn_path}...")
-            df_txn = pd.read_csv(txn_path).head(300)
-            documents, metadatas, ids = [], [], []
-            for i, row in df_txn.iterrows():
-                text = f"Transaction: {row.get('merchant', 'Unknown')} in {row.get('category', 'Unknown')}. Amount: ${row.get('amt', 0)}. Location: {row.get('city', 'Unknown')}, {row.get('state', 'Unknown')}."
-                documents.append(text)
-                metadatas.append({"type": "transaction", "user_id": str(row.get("user_id", "Unknown"))})
-                ids.append(f"txn_{i}")
-            self._collection.add(documents=documents, metadatas=metadatas, ids=ids)
 
         # 2. Index CFPB Complaints (the contextual knowledge base)
         cfpb_path = PROJECT_ROOT / "dataset" / "csv_data" / "cfpb_credit_card.csv"
