@@ -565,6 +565,141 @@ class FinancialAdvisorAgent:
             "alerts": alerts,
         }
 
+    # ── NEW ADVANCED TOOLS ──────────────────────────────────────────────────
+
+    def tool_cash_flow_forecast(self, user_id: str) -> dict[str, Any]:
+        """Projects next month's total spend based on historical averages and recurring subscriptions."""
+        user_df = self.df[self.df["user_id"] == user_id]
+        if user_df.empty:
+            return {"error": f"No data for {user_id}"}
+        
+        subs = user_df[user_df["is_subscription"] == True]
+        avg_monthly_subs = float(subs.groupby("merchant")["amount"].mean().sum()) if not subs.empty else 0.0
+        
+        non_subs = user_df[user_df["is_subscription"] == False]
+        avg_monthly_non_subs = float(non_subs.groupby("month_key")["amount"].sum().mean()) if not non_subs.empty else 0.0
+        
+        forecast = avg_monthly_subs + avg_monthly_non_subs
+        
+        return {
+            "tool": "cash_flow_forecast",
+            "forecast_amount": round(forecast, 2),
+            "subs_amount": round(avg_monthly_subs, 2),
+            "variable_amount": round(avg_monthly_non_subs, 2)
+        }
+
+    def tool_detect_price_hikes(self, user_id: str) -> dict[str, Any]:
+        """Analyzes merchant + amount for recurring subscriptions to flag recent price increases."""
+        user_df = self.df[(self.df["user_id"] == user_id) & (self.df["is_subscription"] == True)]
+        alerts = []
+        if not user_df.empty:
+            for merchant, group in user_df.groupby("merchant"):
+                group = group.sort_values("transaction_date")
+                if len(group) >= 2:
+                    last_two = group["amount"].tail(2).values
+                    if last_two[1] > last_two[0] * 1.05: # 5% hike
+                        alerts.append({
+                            "merchant": merchant,
+                            "old_price": round(last_two[0], 2),
+                            "new_price": round(last_two[1], 2),
+                            "increase_pct": round((last_two[1] / last_two[0] - 1) * 100, 1)
+                        })
+        return {
+            "tool": "detect_price_hikes",
+            "alerts": alerts
+        }
+
+    def tool_identify_waste_vectors(self, user_id: str) -> dict[str, Any]:
+        """Flags categories with high frequency (>10 txns/month) and small amounts (<$15)."""
+        user_df = self.df[self.df["user_id"] == user_id]
+        if user_df.empty:
+            return {"error": f"No data for {user_id}"}
+            
+        vectors = []
+        num_months = max(len(user_df["month_key"].unique()), 1)
+        
+        cat_group = user_df.groupby("category")
+        for cat, group in cat_group:
+            avg_txn = group["amount"].mean()
+            freq_monthly = len(group) / num_months
+            if avg_txn < 15 and freq_monthly >= 8: # relaxed condition for visibility
+                vectors.append({
+                    "category": cat,
+                    "avg_amount": round(avg_txn, 2),
+                    "monthly_frequency": round(freq_monthly, 1),
+                    "monthly_waste": round(avg_txn * freq_monthly, 2)
+                })
+        
+        return {
+            "tool": "identify_waste_vectors",
+            "vectors": sorted(vectors, key=lambda x: x["monthly_waste"], reverse=True)
+        }
+
+    def tool_tax_deductible_finder(self, user_id: str) -> dict[str, Any]:
+        """Flags potential tax-deductible expenses like Healthcare, Charity, or Business travel."""
+        user_df = self.df[self.df["user_id"] == user_id]
+        if user_df.empty:
+            return {"error": f"No data for {user_id}"}
+            
+        tax_cats = ["healthcare", "medical", "pharmacy", "charity", "donation", "travel", "office", "education"]
+        mask = user_df["category"].str.lower().apply(lambda x: any(tc in x for tc in tax_cats))
+        
+        tax_df = user_df[mask]
+        total_potential = float(tax_df["amount"].sum())
+        
+        breakdown = tax_df.groupby("category")["amount"].sum().to_dict()
+        
+        return {
+            "tool": "tax_deductible_finder",
+            "total_potential_deduction": round(total_potential, 2),
+            "breakdown": {k: round(v, 2) for k, v in breakdown.items() if v > 0}
+        }
+
+    def tool_surplus_optimizer(self, user_id: str) -> dict[str, Any]:
+        """Calculates estimated leftover monthly surplus (Income - Spend) and suggests optimization strategies."""
+        user_df = self.df[self.df["user_id"] == user_id]
+        if user_df.empty:
+            return {"error": f"No data for {user_id}"}
+            
+        avg_monthly_spend = float(user_df.groupby("month_key")["amount"].sum().mean())
+        assumed_income = max(5000.0, avg_monthly_spend * 1.5) # Fake income simulation
+        surplus = assumed_income - avg_monthly_spend
+        
+        return {
+            "tool": "surplus_optimizer",
+            "assumed_monthly_income": round(assumed_income, 2),
+            "avg_monthly_spend": round(avg_monthly_spend, 2),
+            "monthly_surplus": round(surplus, 2),
+            "suggestions": [
+                f"Invest ${round(surplus * 0.5, 2)} into an Index Fund.",
+                f"Allocate ${round(surplus * 0.3, 2)} to a High-Yield Savings.",
+                f"Keep ${round(surplus * 0.2, 2)} as liquid fun money."
+            ] if surplus > 0 else ["Reduce spending to create a surplus."]
+        }
+
+    def tool_liquidity_guard(self, user_id: str) -> dict[str, Any]:
+        """Predictive alerts for upcoming bills vs assumed available balance."""
+        user_df = self.df[(self.df["user_id"] == user_id) & (self.df["is_subscription"] == True)]
+        if user_df.empty:
+            return {"error": f"No data for {user_id}"}
+            
+        avg_monthly_spend = float(self.df[self.df["user_id"] == user_id].groupby("month_key")["amount"].sum().mean())
+        assumed_balance = avg_monthly_spend * 0.5 # Fake balance
+        
+        # upcoming bills in next 7 days (mocked as total sub spend / 4)
+        total_sub_spend = float(user_df.groupby("merchant")["amount"].mean().sum())
+        upcoming_bills = total_sub_spend / 4
+        
+        risk = "HIGH" if upcoming_bills > assumed_balance * 0.8 else "LOW"
+        
+        return {
+            "tool": "liquidity_guard",
+            "assumed_balance": round(assumed_balance, 2),
+            "upcoming_7d_bills": round(upcoming_bills, 2),
+            "liquidity_risk": risk
+        }
+
+
     # ── CHAT ROUTER ────────────────────────────────────────────────────────
 
     _CHART_KEYWORDS = [
@@ -620,9 +755,23 @@ class FinancialAdvisorAgent:
             results.append(self.tool_suspicious_activity_monitor(user_id))
 
         # Path Analysis / Diagnostics (New Phase 10)
-        if any(k in msg for k in ["vector", "hierarchy", "waste vector", "path"]):
+        if any(k in msg for k in ["vector", "hierarchy", "path"]):
             results.append(self.tool_spending_summary(user_id))
             show_chart = True
+
+        # Advanced Tools Routing
+        if any(k in msg for k in ["forecast", "cash flow", "project", "next month"]):
+            results.append(self.tool_cash_flow_forecast(user_id))
+        if any(k in msg for k in ["hike", "price"]):
+            results.append(self.tool_detect_price_hikes(user_id))
+        if any(k in msg for k in ["waste vector", "micro", "leak"]):
+            results.append(self.tool_identify_waste_vectors(user_id))
+        if any(k in msg for k in ["tax", "deduction", "deductible", "business", "write-off"]):
+            results.append(self.tool_tax_deductible_finder(user_id))
+        if any(k in msg for k in ["surplus", "optimize"]):
+            results.append(self.tool_surplus_optimizer(user_id))
+        if any(k in msg for k in ["liquid", "guard", "balance", "upcoming", "bills"]):
+            results.append(self.tool_liquidity_guard(user_id))
 
         # Fallback: spending summary
         if not results:
@@ -779,6 +928,54 @@ class FinancialAdvisorAgent:
 
             elif tool == "suspicious_activity_monitor":
                 parts.append(f"**👁️ Activity Monitor**\n\n{r['overall_status']}")
+
+            elif tool == "cash_flow_forecast":
+                parts.append(
+                    f"**📉 Cash Flow Forecast (Next 30 Days)**\n\n"
+                    f"Expected Total: **${r['forecast_amount']:,.2f}**\n"
+                    f"- Fixed Bills/Subs: ${r['subs_amount']:,.2f}\n"
+                    f"- Variable Spend: ${r['variable_amount']:,.2f}"
+                )
+
+            elif tool == "detect_price_hikes":
+                if r['alerts']:
+                    hikes = "\n".join(f"  - **{a['merchant']}**: ${a['old_price']:.2f} ➡️ ${a['new_price']:.2f} (+{a['increase_pct']}%)" for a in r['alerts'])
+                    parts.append(f"**🚨 Price Hike Alerts**\n\nThe following subscriptions recently increased in price:\n\n{hikes}")
+                else:
+                    parts.append("**✅ No Price Hikes Detected**\n\nAll of your recurring subscriptions have remained stable.")
+
+            elif tool == "identify_waste_vectors":
+                if r['vectors']:
+                    vecs = "\n".join(f"  - **{v['category']}**: {v['monthly_frequency']:.0f} txns/mo avg ➡️ wasting ~${v['monthly_waste']:.2f}/mo" for v in r['vectors'][:4])
+                    parts.append(f"**🗑️ Waste Vector Analysis**\n\nHigh-frequency, low-amount transaction leaks identified:\n\n{vecs}")
+                else:
+                    parts.append("**✅ No Waste Vectors**\n\nYour spending frequency is highly optimized.")
+
+            elif tool == "tax_deductible_finder":
+                if r['breakdown']:
+                    cats = "\n".join(f"  - **{k}**: ${v:.2f}" for k, v in r['breakdown'].items())
+                    parts.append(f"**🧾 Tax-Deductible Finder**\n\nYou have **${r['total_potential_deduction']:,.2f}** in potential write-offs:\n\n{cats}")
+                else:
+                    parts.append("**🧾 No Deductibles**\n\nWe did not detect any obvious tax-deductible expenses.")
+
+            elif tool == "surplus_optimizer":
+                sugs = "\n".join(f"  - {s}" for s in r['suggestions'])
+                parts.append(
+                    f"**📈 Surplus Optimizer**\n\n"
+                    f"Estimated Income: ${r['assumed_monthly_income']:,.2f}\n"
+                    f"Avg monthly spend: ${r['avg_monthly_spend']:,.2f}\n"
+                    f"Monthly Surplus: **${r['monthly_surplus']:,.2f}**\n\n"
+                    f"**Optimization Strategy:**\n{sugs}"
+                )
+
+            elif tool == "liquidity_guard":
+                badge = "🔴" if r["liquidity_risk"] == "HIGH" else "🟢"
+                parts.append(
+                    f"**💧 Liquidity Guard** {badge}\n\n"
+                    f"Assumed Balance: ${r['assumed_balance']:,.2f}\n"
+                    f"Upcoming Bills (7 Days): **${r['upcoming_7d_bills']:,.2f}**\n"
+                    f"Risk Status: **{r['liquidity_risk']}**"
+                )
 
         return "\n\n---\n\n".join(parts) if parts else "No insights found for your query. Try asking about spending, savings, or fraud detection."
 

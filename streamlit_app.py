@@ -540,10 +540,24 @@ def render_omni_tab():
         qa2.button("🛡️ Anomaly Protocol", on_click=set_preset, args=("Execute the anomaly detection protocol and report risks.",), use_container_width=True, key="sec_qa2")
         placeholder = "e.g. 'Investigate the recent high-value transactions for fraud alerts.'"
     else:
+        # High Level Overview
         qa1, qa2, qa3 = st.columns(3)
         qa1.button("📊 Spend Review", on_click=set_preset, args=("Provide a full spending portfolio review.",), use_container_width=True, key="fin_qa1")
         qa2.button("💰 Savings Plan", on_click=set_preset, args=("Generate a targeted savings strategy for my archetype.",), use_container_width=True, key="fin_qa2")
         qa3.button("💳 Credit Impact", on_click=set_preset, args=("Estimate my credit health and identifies risk factors.",), use_container_width=True, key="fin_qa3")
+        
+        # Advanced Analytics
+        qa4, qa5, qa6 = st.columns(3)
+        qa4.button("📉 Cash Flow Forecast", on_click=set_preset, args=("Forecast my cash flow for the next 30 days.",), use_container_width=True, key="fin_qa4")
+        qa5.button("🔔 Price Hike Alert", on_click=set_preset, args=("Detect any recent price hikes in my subscriptions.",), use_container_width=True, key="fin_qa5")
+        qa6.button("🧾 Tax-Deductible Finder", on_click=set_preset, args=("Find potential tax-deductible expenses.",), use_container_width=True, key="fin_qa6")
+        
+        # Optimization
+        qa7, qa8, qa9 = st.columns(3)
+        qa7.button("🗑️ Waste Vectors", on_click=set_preset, args=("Identify micro-transaction waste vectors.",), use_container_width=True, key="fin_qa7")
+        qa8.button("📈 Surplus Optimizer", on_click=set_preset, args=("Optimize my monthly surplus.",), use_container_width=True, key="fin_qa8")
+        qa9.button("💧 Liquidity Guard", on_click=set_preset, args=("Check my upcoming bills vs assumed balance.",), use_container_width=True, key="fin_qa9")
+        
         placeholder = "e.g. 'How much did I spend on coffee this month, and how can I save?'"
 
     user_q = st.text_area("Request Intelligence:", 
