@@ -170,37 +170,35 @@ Veriscan-Dashboard/
 ├── CONTRIBUTIONS.md                    # Team Breakdown
 ├── requirements.txt                    # Project Dependencies
 │
-├── agents/                             # 🤖 Modular Agent System (Clean Architecture)
+├── agents/                             # 🤖 Specialized AI Agents
 │   ├── base.py                         # Standardized Agent Interfaces
-│   ├── financial_advisor_agent.py      # 💬 Enhanced Conversational Advisor
-│   ├── knowledge.py                    # RAG-Powered Knowledge Specialist
+│   ├── financial_advisor_agent.py      # 💰 Financial Advisor Specialist
 │   ├── memory.py                       # 🧠 Stateful Conversation Memory
-│   ├── profile.py                      # User Investigation Specialist
-│   ├── scanner.py                      # System-Wide Risk Specialist
-│   ├── spending_dna_agent.py           # 🧬 Behavioral Fingerprinting Agent
-│   └── synthesis.py                    # Multi-Tool Reasoning Specialist
+│   └── spending_dna_agent.py           # 🧬 Behavioral Fingerprinting Agent
 │
 ├── models/                             # Intelligence & Core Logic Layer
 │   ├── local_llm.py                    # 🧠 MLX-LM Wrapper (Llama-3)
-│   ├── guard_agent_local.py            # 🛡️ GuardAgent Facade (Multi-Agent Router)
-│   ├── rag_engine_local.py             # 🔍 RAG Engine (with Multi-Stage Re-ranking)
-│   ├── train_fraud_model.py            # 🚨 ML Training (RF 98%)
-│   └── hash_utils.py                   # Security Utilities
+│   ├── guard_agent_local.py            # 🛡️ Security Analyst Facade
+│   ├── rag_engine_local.py             # 🔍 RAG Engine (Local Indexing)
+│   └── agent_tools_data.py             # ⚙️ Data Tools for Risk & Profiles
 │
 ├── scripts/                            # Data Pipeline & Synthetic Data
 │   ├── feature_engineering.py          # ⚙️ 19 Health Signals
-│   ├── upload_all_to_snowflake.py      # ☁️ Snowflake Batch Uploader
-│   └── ingest_config.yaml              # 🔧 Connection Config
+│   ├── fix_agent_data.py               # 🩹 Data Reconciliation Utility
+│   ├── generate_cfpb_dataset.py        # 🏦 Synthetic CFPB Compliant Data
+│   ├── generate_financial_advisor_dataset.py # 💸 Advisor Context Generator
+│   └── generate_spending_dna_dataset.py # 🧬 DNA Vector Generator
 │
 ├── sql/                                # Snowflake SQL Layer
 │   ├── create_tables.sql               # 📋 DDL: 5 Tables + 2 Views
 │   └── analytical_queries.sql          # 📊 8 Analytical Queries
 │
-├── dataset/csv_data/                   # Data Store (Sampled for GitHub)
-│   ├── fraudTrain_sampled.csv          # Sampled Training Set
-│   ├── fraudTest_sampled.csv           # Sampled Test Set
+├── dataset/csv_data/                   # Production-Ready Data Store
 │   ├── cfpb_credit_card.csv            # CFPB Complaints Base
-│   ├── fraud_detection_qa_dataset.json  # 💡 Expert Intelligence Dataset
+│   ├── financial_advisor_dataset.csv   # 💰 Advisor Training/RAG Data
+│   ├── fraud_detection_qa_dataset.json # 💡 Expert Intelligence Dataset
+│   ├── fraud_scores_output.csv         # 🛡️ Hybrid ML Fraud Scores
+│   ├── spending_dna_dataset.csv        # 🧬 Spending Fingerprints
 │   └── pipeline_logs.csv               # Pipeline Audit Trail
 │
 └── docs/
@@ -239,16 +237,14 @@ graph LR
 
     subgraph Backend ["⚡ FastAPI Backend (Port 8000)"]
         API[REST API Router]
-        ML[Fraud ML Model]
-        Agent[GuardAgent + LLM]
-        RAG[RAG Engine + ChromaDB]
+        Agent[Specialized AI Specialists]
+        RAG[RAG Engine + Context Retrieval]
     end
 
-    UI -->|POST /api/fraud/predict| API
-    UI -->|POST /api/agent/investigate| API
-    UI -->|POST /api/rag/query| API
+    UI -->|POST /api/advisor/chat| API
+    UI -->|POST /api/security/chat| API
+    UI -->|POST /api/dna/dna-analysis| API
     UI -->|GET /api/user/ID/risk| API
-    API --> ML
     API --> Agent
     API --> RAG
 ```
