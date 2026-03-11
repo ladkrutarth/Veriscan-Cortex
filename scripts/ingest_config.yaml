@@ -1,0 +1,31 @@
+# Veriscan — Ingestion Configuration
+# Update Snowflake credentials before running in live mode.
+
+source:
+  csv_path: "Week-4_Hand-on-Session/transactions_export_20260213_000349.csv"
+  format: csv
+  delimiter: ","
+  encoding: utf-8
+
+snowflake:
+  # It is STRONGLY RECOMMENDED to use environment variables for these fields:
+  # export SNOWFLAKE_ACCOUNT="your-account"
+  # export SNOWFLAKE_USER="your-user"
+  # export SNOWFLAKE_PASSWORD="your-password"
+  
+  account: "YOUR_SNOWFLAKE_ACCOUNT"
+  user: "YOUR_SNOWFLAKE_USER"
+  password: "YOUR_SNOWFLAKE_PASSWORD"
+  warehouse: "GRAPH_GUARD_DATABASE"
+  database: "GRAPHGUARD_DB"
+  schema: "PUBLIC"
+  role: "SYSADMIN"
+
+target:
+  raw_table: "RAW_TRANSACTIONS"
+  features_table: "TRANSACTION_FEATURES"
+  scores_table: "FRAUD_SCORES"
+
+batch:
+  chunk_size: 5000
+  max_retries: 3
