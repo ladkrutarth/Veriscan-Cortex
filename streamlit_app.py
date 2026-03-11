@@ -35,36 +35,60 @@ FEATURES_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "financial_advisor_datas
 CFPB_PATH = PROJECT_ROOT / "dataset" / "csv_data" / "cfpb_credit_card.csv"
 
 # ---------------------------------------------------------------------------
-# Aesthetics & Accessibility Constants
+# Premium Palette & Chart Helpers
 # ---------------------------------------------------------------------------
-CHART_TEXT_COLOR = "#111827"  # Deep Gray/Black for Mobbin aesthetic
+PALETTE = {
+    "bg": "#F7F7F7",        # Clean white background
+    "surface": "#FFFFFF",
+    "border": "#E5E7EB",
+    "text": "#0B1220",
+    "muted": "#5B6474",
+    "grid": "#EEF2F7",
+    "brand": "#1E2761",     # Midnight Blue
+    "brand_2": "#408EC6",   # Royal Blue
+    "success": "#7A2048",   # Burgundy accent (used sparingly)
+    "warn": "#F97316",      # Orange
+    "danger": "#DC2626",    # Red
+    "slate": "#111827",
+}
+
+# Qualitative & sequential palettes (Seaborn-like choices)
+QUAL_CATEGORICAL = ["#1E2761", "#FF7F0E", "#2CA02C", "#D62728"]  # blue, orange, green, red
+SEQ_BLUE = ["#EFF6FF", "#BFDBFE", "#60A5FA", "#1D4ED8", "#1E2761"]
+DIV_BLUE_RED = ["#7A2048", "#F97316", "#FACC15", "#22C55E", "#1D4ED8"]
+
+CHART_TEXT_COLOR = PALETTE["text"]
 CHART_FONT = {"family": "Inter", "size": 14, "color": CHART_TEXT_COLOR}
 
-# Helper to apply unified minimalist theme to Plotly figures
-def apply_accessible_theme(fig):
+
+def apply_accessible_theme(fig, *, title: str | None = None):
+    """Apply a unified, premium chart theme."""
+    if title:
+        fig.update_layout(title={"text": title, "x": 0.0, "xanchor": "left"})
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#FFFFFF",
+        plot_bgcolor=PALETTE["surface"],
         font=CHART_FONT,
         margin={"l": 30, "r": 30, "t": 60, "b": 30},
         title_font={"size": 20, "family": "Inter", "color": CHART_TEXT_COLOR, "weight": "bold"},
-        legend_font={"size": 13, "color": "#4B5563"},
+        legend_font={"size": 13, "color": PALETTE["muted"]},
+        colorway=[PALETTE["brand"], PALETTE["brand_2"], PALETTE["success"], PALETTE["warn"], PALETTE["danger"]],
     )
     fig.update_xaxes(
-        showgrid=True, 
-        gridcolor="#F3F4F6", 
-        tickfont={"size": 12, "color": "#4B5563"},
-        title_font={"size": 13, "color": "#6B7280", "weight": "bold"},
-        linecolor="#E5E7EB",
-        linewidth=1
+        showgrid=True,
+        gridcolor=PALETTE["grid"],
+        tickfont={"size": 12, "color": PALETTE["muted"]},
+        title_font={"size": 13, "color": PALETTE["muted"], "weight": "bold"},
+        linecolor=PALETTE["border"],
+        linewidth=1,
     )
     fig.update_yaxes(
-        showgrid=True, 
-        gridcolor="#F3F4F6", 
-        tickfont={"size": 12, "color": "#4B5563"},
-        title_font={"size": 13, "color": "#6B7280", "weight": "bold"},
-        linecolor="#E5E7EB",
-        linewidth=1
+        showgrid=True,
+        gridcolor=PALETTE["grid"],
+        tickfont={"size": 12, "color": PALETTE["muted"]},
+        title_font={"size": 13, "color": PALETTE["muted"], "weight": "bold"},
+        linecolor=PALETTE["border"],
+        linewidth=1,
     )
     return fig
 
@@ -85,11 +109,13 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Mobbin Minimalist Aesthetic */
+    /* Mobbin Minimalist Aesthetic + Premium Palette */
     .stApp {
-        background-color: #FAFAFA;
+        background-color: #F7F7F7;
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         color: #111827;
+        font-size: 16px;
+        line-height: 1.6;
     }
 
     /* Clean Header */
@@ -104,7 +130,7 @@ st.markdown("""
 
     .main-header h1 {
         margin: 0;
-        font-size: 2.5rem;
+        font-size: 2.2rem;
         font-weight: 700;
         color: #111827;
         letter-spacing: -0.02em;
@@ -112,8 +138,9 @@ st.markdown("""
     
     .main-header p {
         color: #6B7280;
-        font-size: 1.1rem;
+        font-size: 0.98rem;
         margin-top: 0.5rem;
+        max-width: 52rem;
     }
 
     /* Minimalist Bento Cards */
@@ -142,7 +169,7 @@ st.markdown("""
     }
     
     .metric-card .value { 
-        font-size: 2.25rem; 
+        font-size: 1.9rem; 
         font-weight: 700; 
         margin: 0.5rem 0 0 0; 
         color: #111827; 
@@ -165,21 +192,32 @@ st.markdown("""
         color: #111827 !important;
         font-weight: 600 !important;
         letter-spacing: -0.01em;
+        margin-top: 1.5rem !important;
+        margin-bottom: 0.75rem !important;
     }
+    .stMarkdown h2 { font-size: 1.45rem !important; }
+    .stMarkdown h3 { font-size: 1.25rem !important; }
+    .stMarkdown h4 { font-size: 1.08rem !important; }
     
-    /* Clean Inputs */
+    /* Clean Inputs — light background, friendly focus (Royal Blue) */
     div[data-testid="stTextInput"] div[data-baseweb="input"],
     div[data-testid="stTextArea"] div[data-baseweb="textarea"],
     div[data-baseweb="input"] {
         background-color: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
+        border: 1px solid #D1D5DB !important;
         border-radius: 8px !important;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important;
+        color: #1E2761 !important;
     }
-
-    div[data-baseweb="input"]:focus-within {
-        border-color: #111827 !important;
-        box-shadow: 0 0 0 1px #111827 !important;
+    div[data-baseweb="input"] input,
+    div[data-baseweb="textarea"] textarea {
+        color: #1E2761 !important;
+        font-size: 1rem !important;
+    }
+    div[data-baseweb="input"]:focus-within,
+    div[data-baseweb="textarea"]:focus-within {
+        border-color: #408EC6 !important;
+        box-shadow: 0 0 0 2px rgba(64, 142, 198, 0.25) !important;
     }
 
     /* Monochromatic Buttons */
@@ -237,21 +275,50 @@ st.markdown("""
 
     /* Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #FAFAFA !important;
+        background-color: #F7F7F7 !important;
         border-right: 1px solid #E5E7EB;
     }
     section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
     section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] li,
     section[data-testid="stSidebar"] label {
-        color: #374151 !important;
+        color: #4B5563 !important;
         font-weight: 500 !important;
+        font-size: 0.92rem !important;
     }
     section[data-testid="stSidebar"] h2, 
     section[data-testid="stSidebar"] h3 {
         color: #111827 !important;
         font-weight: 700 !important;
         letter-spacing: -0.01em;
+        font-size: 1.2rem !important;
     }
+
+    /* Status pills row */
+    .top-row {
+        display: flex;
+        gap: 0.75rem;
+        align-items: stretch;
+        flex-wrap: wrap;
+        margin: 0.75rem 0 1.25rem 0;
+    }
+    .pill {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 999px;
+        padding: 0.45rem 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 1px 2px rgba(15,23,42,0.05);
+        font-size: 0.85rem;
+        color: #0B1220;
+    }
+    .dot {
+        width: 9px; height: 9px; border-radius: 50%;
+        background: #9CA3AF;
+    }
+    .dot.ok { background: #16A34A; }
+    .dot.bad { background: #DC2626; }
 
     /* High-Contrast Widget Labels & Info Text */
     div[data-testid="stWidgetLabel"] p,
@@ -300,6 +367,18 @@ def api_available() -> bool:
         return r.status_code == 200
     except Exception:
         return False
+
+
+@st.cache_data(ttl=10)
+def api_health() -> dict | None:
+    """Lightweight cached health check for status pills."""
+    try:
+        r = requests.get(f"{API_BASE_URL}/api/health", timeout=2)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        return None
+    return None
 
 @st.cache_resource
 def get_llm_via_api(prompt: str, max_tokens: int = 500) -> str:
@@ -384,8 +463,8 @@ def render_login_page():
 
 def render_sidebar():
     with st.sidebar:
-        st.markdown("<h2 style='color:#0f172a;'>🛡️ Veriscan</h2>", unsafe_allow_html=True)
-        st.markdown("Security & Intelligence Hub")
+        st.markdown("<h2 style='color:#0B1220;'>🛡️ Veriscan</h2>", unsafe_allow_html=True)
+        st.markdown("<span style='color:#5B6474;font-weight:500;'>Security & Intelligence Hub</span>", unsafe_allow_html=True)
         st.divider()
 
         if st.session_state.get("authenticated"):
@@ -396,15 +475,37 @@ def render_sidebar():
                 st.experimental_rerun()
 
         st.divider()
-        st.markdown("### System Status")
+        st.markdown("### Navigation")
+        st.session_state.setdefault("nav", "🛡️ Security AI")
+        st.session_state["nav"] = st.radio(
+            "Go to",
+            ["🛡️ Security AI", "💰 Financial AI", "📊 Market Dash", "🔍 CFPB Market Intel", "🧬 Spending DNA"],
+            index=["🛡️ Security AI", "💰 Financial AI", "📊 Market Dash", "🔍 CFPB Market Intel", "🧬 Spending DNA"].index(
+                st.session_state.get("nav", "🛡️ Security AI")
+            ),
+            label_visibility="collapsed",
+        )
+
+        st.divider()
+        st.markdown("### System")
+        h = api_health()
+        if h:
+            st.success("Backend: online")
+            st.caption(f"API v{h.get('version','—')}")
+        else:
+            st.error("Backend: offline")
+
         fraud_df = load_fraud_data(FEATURES_PATH, FEATURES_PATH.stat().st_mtime if FEATURES_PATH.exists() else 0)
         cfpb_df = load_cfpb_data()
-        
         st.markdown(f"""
         - 💸 Transactions: **{len(fraud_df):,}**
         - 📝 Complaints: **{len(cfpb_df):,}**
-        - 🤖 Intelligence: **Local MLX-LM**
         """)
+
+        st.divider()
+        st.markdown("### Runtime")
+        st.markdown("- **LLM**: Local MLX-LM (Llama 3 class)")
+        st.markdown("- **RAG**: Chroma + MiniLM embeddings")
 
 # ---------------------------------------------------------------------------
 # Tab 1: Fraud Dashboard
@@ -431,18 +532,35 @@ def render_dashboard_tab(df):
         st.plotly_chart(apply_accessible_theme(fig), use_container_width=True)
     
     with col2:
-        st.subheader("Interactive Fraud Map (US)")
-        state_data = df.groupby('state')['is_fraud_flag'].sum().reset_index()
-        fig = px.choropleth(
-            state_data,
-            locations='state',
-            locationmode="USA-states",
-            color='is_fraud_flag',
-            color_continuous_scale="Greys",
-            scope="usa",
-            labels={'is_fraud_flag': 'Fraud Cases'}
-        )
-        st.plotly_chart(apply_accessible_theme(fig), use_container_width=True)
+        st.subheader("Interactive Fraud Bubble Map (US)")
+        state_data = df.groupby("state")["is_fraud_flag"].sum().reset_index()
+        state_data = state_data[state_data["state"].notna()]
+        if not state_data.empty:
+            min_cases = int(state_data["is_fraud_flag"].min())
+            max_cases = int(state_data["is_fraud_flag"].max())
+            cutoff = st.slider(
+                "Show states with at least this many fraud cases:",
+                min_value=min_cases,
+                max_value=max_cases,
+                value=min(max_cases // 10, max_cases),
+                key="fraud_map_cutoff",
+            )
+            filtered = state_data[state_data["is_fraud_flag"] >= cutoff]
+            fig = px.scatter_geo(
+                filtered,
+                locations="state",
+                locationmode="USA-states",
+                size="is_fraud_flag",
+                color="is_fraud_flag",
+                scope="usa",
+                hover_name="state",
+                labels={"is_fraud_flag": "Fraud cases"},
+                color_continuous_scale=SEQ_BLUE,
+            )
+            fig.update_traces(marker_line_color="white", marker_line_width=0.6, opacity=0.9)
+            st.plotly_chart(apply_accessible_theme(fig, title="Fraud cases by state (bubble map)"), use_container_width=True)
+        else:
+            st.info("No state-level data available for the map.")
 
     st.subheader("Monthly Fraud Trends (Month & Year)")
     trend_data = df[df['is_fraud_flag'] == True].groupby('month_key').size().reset_index(name='fraud_count')
@@ -476,7 +594,7 @@ def render_cfpb_tab(df):
         rep_df = df[df['Company'].isin(reporting_cos)]
         rep_counts = rep_df['Company'].value_counts().reset_index()
         fig_rep = px.bar(rep_counts, x='count', y='Company', orientation='h', template='plotly_white', 
-                         color_discrete_sequence=['#111827'], title="Credit Reporting Volume")
+                         color_discrete_sequence=[QUAL_CATEGORICAL[1]], title="Credit Reporting Volume")
         st.plotly_chart(apply_accessible_theme(fig_rep), use_container_width=True)
 
     with m2:
@@ -484,25 +602,41 @@ def render_cfpb_tab(df):
         iss_df = df[~df['Company'].isin(reporting_cos)]
         iss_counts = iss_df['Company'].value_counts().head(8).reset_index()
         fig_iss = px.bar(iss_counts, x='count', y='Company', orientation='h', template='plotly_white', 
-                         color_discrete_sequence=['#374151'], title="Top Issuer Complaints")
+                         color_discrete_sequence=[QUAL_CATEGORICAL[0]], title="Top Issuer Complaints")
         st.plotly_chart(apply_accessible_theme(fig_iss), use_container_width=True)
 
     st.divider()
     c1, c2 = st.columns([3, 2])
     with c1:
-        st.markdown("#### 🗺️ Geographic Distribution")
-        state_data = df.groupby('State').size().reset_index(name='Complaints')
-        fig2 = px.choropleth(
-            state_data,
-            locations='State',
-            locationmode="USA-states",
-            color='Complaints',
-            color_continuous_scale="Greys",
-            scope="usa",
-            labels={'Complaints': 'Complaints'},
-            title="Complaint Distribution by State"
-        )
-        st.plotly_chart(apply_accessible_theme(fig2), use_container_width=True)
+        st.markdown("#### 🗺️ Geographic Distribution (Bubble Map)")
+        state_data = df.groupby("State").size().reset_index(name="Complaints")
+        state_data = state_data[state_data["State"].notna()]
+        if not state_data.empty:
+            min_c = int(state_data["Complaints"].min())
+            max_c = int(state_data["Complaints"].max())
+            cutoff_c = st.slider(
+                "Show states with at least this many complaints:",
+                min_value=min_c,
+                max_value=max_c,
+                value=min(max_c // 15 or max_c, max_c),
+                key="cfpb_map_cutoff",
+            )
+            filtered_c = state_data[state_data["Complaints"] >= cutoff_c]
+            fig2 = px.scatter_geo(
+                filtered_c,
+                locations="State",
+                locationmode="USA-states",
+                size="Complaints",
+                color="Complaints",
+                scope="usa",
+                hover_name="State",
+                labels={"Complaints": "Complaints"},
+                color_continuous_scale=DIV_BLUE_RED,
+            )
+            fig2.update_traces(marker_line_color="white", marker_line_width=0.6, opacity=0.9)
+            st.plotly_chart(apply_accessible_theme(fig2, title="Complaint distribution by state (bubble map)"), use_container_width=True)
+        else:
+            st.info("No state-level complaint data available for the map.")
 
     with c2:
         st.markdown("#### 💬 AI Intelligence & Search")
@@ -775,8 +909,144 @@ def render_omni_tab():
                     st.error(f"Anomaly Protocol Error: {e}")
 
 
+# ---------------------------------------------------------------------------
+# Premium AI Pages: Security & Financial (separate)
+# ---------------------------------------------------------------------------
+def _get_all_users_financial() -> list[str]:
+    from agents.financial_advisor_agent import FinancialAdvisorAgent
+    try:
+        adv = FinancialAdvisorAgent()
+        return adv.get_all_users() or ["USER_0001"]
+    except Exception:
+        return ["USER_0001"]
 
 
+def _top_status_row(*, model_label: str):
+    h = api_health()
+    backend_ok = bool(h)
+    dot_cls = "ok" if backend_ok else "bad"
+    st.markdown(
+        f"""
+        <div class="top-row">
+          <div class="pill"><span class="dot {dot_cls}"></span><strong>Backend</strong> <span style="color:#5B6474;">{("online" if backend_ok else "offline")}</span></div>
+          <div class="pill"><span class="dot ok"></span><strong>Current model</strong> <span style="color:#5B6474;">{model_label}</span></div>
+          <div class="pill"><span class="dot ok"></span><strong>Runtime</strong> <span style="color:#5B6474;">Local MLX-LM + RAG</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_security_ai_page():
+    from agents.financial_advisor_agent import FinancialAdvisorAgent
+
+    st.markdown("### 🛡️ Security AI Analyst")
+    st.caption("Threat scanning, anomaly protocols, and fraud-focused security responses.")
+    _top_status_row(model_label="Security Analyst")
+
+    all_users = _get_all_users_financial()
+    st.markdown("#### Context")
+    selected_user = st.selectbox("Target user", all_users[:50], key="sec_user")
+
+    # Live monitor
+    try:
+        adv = FinancialAdvisorAgent()
+        monitor = adv.tool_suspicious_activity_monitor(selected_user)
+        if monitor.get("alert_count", 0) > 0:
+            overall = monitor.get("overall_status", "ALERT")
+            border = PALETTE["danger"] if "CRITICAL" in str(overall).upper() else PALETTE["warn"]
+            st.markdown(
+                f"""<div style='background:rgba(220,38,38,0.05);border:1px solid {border};border-radius:12px;padding:1rem;margin-bottom:1.0rem;'>
+                <div style='font-weight:700;font-size:1rem;margin-bottom:0.5rem;'>🛡️ Shield Monitor — <span style='color:{border};'>{overall}</span></div>
+                <p style='font-size:0.95rem; margin-bottom:0;'>Detected {monitor.get('alert_count',0)} anomalies requiring attention.</p>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.success("✅ **Shield Monitor:** No suspicious activity detected.", icon="🛡️")
+    except Exception:
+        pass
+
+    st.divider()
+    st.markdown("#### 💬 Security Chat")
+    qa1, qa2 = st.columns(2)
+    if qa1.button("🔍 Run Fraud Scan", use_container_width=True, key="sec_preset_1"):
+        st.session_state["sec_input"] = "Scan my recent transactions for any signs of fraud."
+    if qa2.button("🧯 Incident Playbook", use_container_width=True, key="sec_preset_2"):
+        st.session_state["sec_input"] = "Provide an incident response playbook for suspicious card activity."
+
+    user_q = st.text_area(
+        "Request security intelligence",
+        placeholder="e.g. 'Investigate recent high-value transactions and recommend immediate safeguards.'",
+        height=110,
+        key="sec_input",
+    )
+    if st.button("🚀 Execute Security Analysis", type="primary", key="sec_btn") and user_q:
+        with st.spinner("Security Analyst is analyzing..."):
+            try:
+                sid = st.session_state.get("session_id") or st.session_state.setdefault("security_session_id", str(uuid.uuid4())[:12])
+                resp = requests.post(f"{API_BASE_URL}/api/security/chat", json={"message": user_q, "session_id": sid}, timeout=120)
+                if resp.status_code == 200:
+                    res = resp.json()
+                    st.markdown(res.get("reply", ""))
+                else:
+                    st.error(f"API Error: {resp.status_code}")
+            except Exception as e:
+                st.error(f"Connection Error: {e}")
+
+
+def render_financial_ai_page():
+    st.markdown("### 💰 Financial AI Advisor")
+    st.caption("Premium spending insights, forecasting, optimization, and advisory reports.")
+    _top_status_row(model_label="Financial Advisor")
+
+    all_users = _get_all_users_financial()
+    st.markdown("#### Context")
+    selected_user = st.selectbox("Target user", all_users[:50], key="fin_user")
+
+    # Quick summary
+    try:
+        from agents.financial_advisor_agent import FinancialAdvisorAgent
+        adv = FinancialAdvisorAgent()
+        summary = adv.tool_spending_summary(selected_user)
+        st.info(
+            f"📊 **Quick Review:** {summary.get('archetype','').replace('_',' ').title()} spender · "
+            f"Monthly Avg: **${summary.get('avg_monthly_spend', 0):,.2f}**"
+        )
+    except Exception:
+        pass
+
+    st.divider()
+    st.markdown("#### 💬 Advisor Chat")
+    qa1, qa2, qa3 = st.columns(3)
+    if qa1.button("📊 Spend Review", use_container_width=True, key="fin_preset_1"):
+        st.session_state["fin_input"] = "Provide a full spending portfolio review."
+    if qa2.button("💰 Savings Plan", use_container_width=True, key="fin_preset_2"):
+        st.session_state["fin_input"] = "Generate a targeted savings strategy for my archetype."
+    if qa3.button("📉 Cash Flow Forecast", use_container_width=True, key="fin_preset_3"):
+        st.session_state["fin_input"] = "Forecast my cash flow for the next 30 days."
+
+    user_q = st.text_area(
+        "Request financial intelligence",
+        placeholder="e.g. 'Where is my overspending, and what 3 changes will save the most this month?'",
+        height=120,
+        key="fin_input",
+    )
+    if st.button("🚀 Generate Advisor Report", type="primary", key="fin_btn") and user_q:
+        with st.spinner("Financial Advisor is analyzing..."):
+            try:
+                payload = {"user_id": selected_user, "message": user_q}
+                sid = st.session_state.get("session_id")
+                if sid:
+                    payload["session_id"] = sid
+                resp = requests.post(f"{API_BASE_URL}/api/advisor/chat", json=payload, timeout=120)
+                if resp.status_code == 200:
+                    res = resp.json()
+                    st.markdown(res.get("reply", ""))
+                else:
+                    st.error(f"API Error: {resp.status_code}")
+            except Exception as e:
+                st.error(f"Connection Error: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -907,20 +1177,19 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    tabs = st.tabs([
-        "🤖 AI Specialists",
-        "📊 Market Dash",
-        "🔍 CFPB Market Intel",
-        "🧬 Spending DNA",
-    ])
-
     fraud_df = load_fraud_data(FEATURES_PATH, FEATURES_PATH.stat().st_mtime if FEATURES_PATH.exists() else 0)
     cfpb_df  = load_cfpb_data()
-
-    with tabs[0]: render_omni_tab()
-    with tabs[1]: render_dashboard_tab(fraud_df)
-    with tabs[2]: render_cfpb_tab(cfpb_df)
-    with tabs[3]: render_dna_tab()
+    page = st.session_state.get("nav", "🛡️ Security AI")
+    if page == "🛡️ Security AI":
+        render_security_ai_page()
+    elif page == "💰 Financial AI":
+        render_financial_ai_page()
+    elif page == "📊 Market Dash":
+        render_dashboard_tab(fraud_df)
+    elif page == "🔍 CFPB Market Intel":
+        render_cfpb_tab(cfpb_df)
+    elif page == "🧬 Spending DNA":
+        render_dna_tab()
 
 if __name__ == "__main__":
     main()

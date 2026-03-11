@@ -1,0 +1,19 @@
+[theme]
+base = "light"
+primaryColor = "#408EC6"
+backgroundColor = "#F7F7F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0B1220"
+font = "sans serif"
+
+#
+# Streamlit theme (premium, readable, high contrast)
+#
+
+[theme]
+base = "light"
+primaryColor = "#408EC6"
+backgroundColor = "#F7F7F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0B1220"
+font = "sans serif"
