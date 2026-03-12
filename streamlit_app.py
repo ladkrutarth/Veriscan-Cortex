@@ -520,14 +520,10 @@ def render_dashboard_tab(df):
     st.subheader("Top 10 Online Scam & Crime Types by Losses (Global)")
     st.markdown("Global reported losses by category. *Note: Actual losses are likely higher due to underreporting.*")
     
+    from models.agent_tools_data import GLOBAL_SCAM_STATS
     scam_data = pd.DataFrame({
-        "Scam Type": [
-            "Investment Scams", "Business Email Compromise", "Tech Support Scams", 
-            "Non-Payment/Delivery", "Confidence/Romance Scams", "Govt. Impersonation", 
-            "Employment Scams", "Credit Card/Check Fraud", "Real Estate/Rental", 
-            "Misc. Cyber-enabled"
-        ],
-        "Losses ($B)": [46.9, 19.8, 10.5, 5.6, 4.8, 2.9, 2.0, 1.9, 1.4, 1.2]
+        "Scam Type": list(GLOBAL_SCAM_STATS.keys()),
+        "Losses ($B)": list(GLOBAL_SCAM_STATS.values())
     }).sort_values(by="Losses ($B)", ascending=True)
 
     fig_scam = px.bar(
@@ -1019,53 +1015,144 @@ def render_financial_ai_page():
     st.caption("Premium spending insights, forecasting, optimization, and advisory reports.")
     _top_status_row(model_label="Financial Advisor")
 
+    # Session Management Implementation
+    if "fin_sessions" not in st.session_state:
+        st.session_state.fin_sessions = {}
+    if "active_fin_session_id" not in st.session_state:
+        st.session_state.active_fin_session_id = None
+
     all_users = _get_all_users_financial()
-    st.markdown("#### Context")
-    selected_user = st.selectbox("Target user", all_users[:50], key="fin_user")
 
-    # Quick summary
-    try:
-        from agents.financial_advisor_agent import FinancialAdvisorAgent
-        adv = FinancialAdvisorAgent()
-        summary = adv.tool_spending_summary(selected_user)
-        st.info(
-            f"📊 **Quick Review:** {summary.get('archetype','').replace('_',' ').title()} spender · "
-            f"Monthly Avg: **${summary.get('avg_monthly_spend', 0):,.2f}**"
-        )
-    except Exception:
-        pass
+    # Sidebar for session management (or top section)
+    col_sessions, col_chat = st.columns([1, 3])
 
-    st.divider()
-    st.markdown("#### 💬 Advisor Chat")
-    qa1, qa2, qa3 = st.columns(3)
-    if qa1.button("📊 Spend Review", use_container_width=True, key="fin_preset_1"):
-        st.session_state["fin_input"] = "Provide a full spending portfolio review."
-    if qa2.button("💰 Savings Plan", use_container_width=True, key="fin_preset_2"):
-        st.session_state["fin_input"] = "Generate a targeted savings strategy for my archetype."
-    if qa3.button("📉 Cash Flow Forecast", use_container_width=True, key="fin_preset_3"):
-        st.session_state["fin_input"] = "Forecast my cash flow for the next 30 days."
+    with col_sessions:
+        st.markdown("#### 📁 Sessions")
+        if st.button("➕ New Advisor Chat", use_container_width=True):
+            new_id = str(uuid.uuid4())
+            st.session_state.fin_sessions[new_id] = {
+                "name": f"Chat {len(st.session_state.fin_sessions)+1}",
+                "user_id": all_users[0],
+                "history": []
+            }
+            st.session_state.active_fin_session_id = new_id
+            st.rerun()
 
-    user_q = st.text_area(
-        "Request financial intelligence",
-        placeholder="e.g. 'Where is my overspending, and what 3 changes will save the most this month?'",
-        height=120,
-        key="fin_input",
-    )
-    if st.button("🚀 Generate Advisor Report", type="primary", key="fin_btn") and user_q:
-        with st.spinner("Financial Advisor is analyzing..."):
+        if not st.session_state.fin_sessions:
+            st.info("No active sessions. Create one to start.")
+            return
+
+        session_options = {sid: s["name"] for sid, s in st.session_state.fin_sessions.items()}
+        selected_sid = st.radio("Select Session", options=list(session_options.keys()), 
+                                 format_func=lambda x: session_options[x],
+                                 key="session_selector")
+        st.session_state.active_fin_session_id = selected_sid
+        
+        active_sess = st.session_state.fin_sessions[selected_sid]
+        
+        st.divider()
+        st.markdown("#### ⚙️ Settings")
+        new_user = st.selectbox("Target user", all_users[:50], 
+                                index=all_users.index(active_sess["user_id"]) if active_sess["user_id"] in all_users[:50] else 0,
+                                key="fin_user_select")
+        if new_user != active_sess["user_id"]:
+            # Context clearing logic
+            active_sess["user_id"] = new_user
+            active_sess["history"] = []
             try:
-                payload = {"user_id": selected_user, "message": user_q}
-                sid = st.session_state.get("session_id")
-                if sid:
-                    payload["session_id"] = sid
-                resp = requests.post(f"{API_BASE_URL}/api/advisor/chat", json=payload, timeout=120)
-                if resp.status_code == 200:
-                    res = resp.json()
-                    st.markdown(res.get("reply", ""))
-                else:
-                    st.error(f"API Error: {resp.status_code}")
-            except Exception as e:
-                st.error(f"Connection Error: {e}")
+                requests.post(f"{API_BASE_URL}/api/advisor/reset?session_id={selected_sid}", timeout=5)
+            except Exception:
+                pass
+            st.rerun()
+        
+        if st.button("🗑️ Delete Session", type="secondary"):
+            del st.session_state.fin_sessions[selected_sid]
+            st.session_state.active_fin_session_id = None
+            st.rerun()
+
+    with col_chat:
+        active_sess = st.session_state.fin_sessions[st.session_state.active_fin_session_id]
+        selected_user = active_sess["user_id"]
+
+        # Quick summary header
+        try:
+            from agents.financial_advisor_agent import FinancialAdvisorAgent
+            adv = FinancialAdvisorAgent()
+            summary = adv.tool_spending_summary(selected_user)
+            st.markdown(f"**Context:** {summary.get('archetype','').replace('_',' ').title()} spender · Avg: **${summary.get('avg_monthly_spend', 0):,.2f}/mo**")
+        except Exception:
+            pass
+
+        st.divider()
+
+        # Chat display container
+        chat_container = st.container(height=500)
+        with chat_container:
+            if not active_sess["history"]:
+                st.info("Ask a financial question or use a preset below.")
+            
+            for msg in active_sess["history"]:
+                with st.chat_message(msg["role"]):
+                    st.markdown(msg["content"])
+        
+        # Input section: Row 1
+        qa1, qa2, qa3 = st.columns(3)
+        preset_q = None
+        if qa1.button("📊 Spend Review", use_container_width=True, key="fin_preset_1"):
+            preset_q = "Provide a full spending portfolio review."
+        if qa2.button("💰 Savings Plan", use_container_width=True, key="fin_preset_2"):
+            preset_q = "Generate a targeted savings strategy for my archetype."
+        if qa3.button("📉 Cash Flow Forecast", use_container_width=True, key="fin_preset_3"):
+            preset_q = "Forecast my cash flow for the next 30 days."
+
+        # Input section: Row 2
+        qb1, qb2, qb3 = st.columns(3)
+        if qb1.button("🧾 Tax-Deductible Finder", use_container_width=True, key="fin_preset_4"):
+            preset_q = "Find my potential tax-deductible expenses."
+        if qb2.button("📈 Price Hike Alerts", use_container_width=True, key="fin_preset_5"):
+            preset_q = "Scan my subscriptions for price hikes."
+        if qb3.button("💳 Credit Score Impact", use_container_width=True, key="fin_preset_6"):
+            preset_q = "Analyze my spending impact on my credit score."
+
+        # Input section: Row 3
+        qc1, qc2, qc3 = st.columns(3)
+        if qc1.button("🛡️ Fraud Market Scan", use_container_width=True, key="fin_preset_7"):
+            preset_q = "How do global market fraud trends compare to this dataset?"
+        if qc2.button("📈 Surplus Optimizer", use_container_width=True, key="fin_preset_8"):
+            preset_q = "Identify areas where I can optimize surplus funds."
+        if qc3.button("💸 Liquidity Guard", use_container_width=True, key="fin_preset_9"):
+            preset_q = "Review my upcoming bills and liquidity status."
+
+        user_q = st.chat_input("Request financial intelligence...")
+        
+        final_q = user_q or preset_q
+        
+        if final_q:
+            # Handle user message
+            active_sess["history"].append({"role": "user", "content": final_q})
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(final_q)
+                
+                with st.chat_message("assistant"):
+                    with st.spinner("Financial Advisor is analyzing..."):
+                        try:
+                            payload = {
+                                "user_id": selected_user, 
+                                "message": final_q,
+                                "session_id": st.session_state.active_fin_session_id
+                            }
+                            resp = requests.post(f"{API_BASE_URL}/api/advisor/chat", json=payload, timeout=120)
+                            if resp.status_code == 200:
+                                res = resp.json()
+                                reply = res.get("reply", "")
+                                st.markdown(reply)
+                                active_sess["history"].append({"role": "assistant", "content": reply})
+                            else:
+                                st.error(f"API Error: {resp.status_code}")
+                        except Exception as e:
+                            st.error(f"Connection Error: {e}")
+            st.rerun()
 
 
 # ---------------------------------------------------------------------------

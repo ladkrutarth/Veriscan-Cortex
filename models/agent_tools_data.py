@@ -19,6 +19,20 @@ DATA_PATHS = {
 _fraud_df = None
 _auth_df = None
 
+# Global Scam Statistics (Losses in $B) - FBI/IC3 2024 Estimates
+GLOBAL_SCAM_STATS = {
+    "Investment Scams": 46.9,
+    "Business Email Compromise": 19.8,
+    "Tech Support Scams": 10.5,
+    "Non-Payment/Delivery": 5.6,
+    "Confidence/Romance Scams": 4.8,
+    "Govt. Impersonation": 2.9,
+    "Employment Scams": 2.0,
+    "Credit Card/Check Fraud": 1.9,
+    "Real Estate/Rental": 1.4,
+    "Misc. Cyber-enabled": 1.2
+}
+
 
 def _load_cache():
     global _fraud_df, _auth_df

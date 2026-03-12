@@ -10,6 +10,8 @@ import re
 import pandas as pd
 import numpy as np
 import random
+from agents.memory import get_memory
+from models.agent_tools_data import GLOBAL_SCAM_STATS
 
 PROJECT_ROOT       = Path(__file__).resolve().parent.parent
 ADVISOR_DATA_PATH  = PROJECT_ROOT / "dataset" / "csv_data" / "financial_advisor_dataset.csv"
@@ -676,6 +678,48 @@ class FinancialAdvisorAgent:
             "liquidity_risk": risk
         }
 
+    def tool_market_fraud_insights(self) -> dict[str, Any]:
+        """
+        Provides high-level market fraud context and category-level fraud frequencies.
+        Enables the advisor to reason about global scam trends vs local dataset risk.
+        Uses fraud_scores_output.csv for local risk calculation.
+        """
+        try:
+            # 1. Load the authoritative risk dataset
+            risk_path = PROJECT_ROOT / "dataset" / "csv_data" / "fraud_scores_output.csv"
+            if not risk_path.exists():
+                return {"error": "Risk dataset not found"}
+            
+            risk_df = pd.read_csv(risk_path)
+            risk_df.columns = [c.upper() for c in risk_df.columns]
+            
+            # 2. Dataset-specific Category Fraud Rates (Local Heatmap)
+            # We look for HIGH risk transactions per category
+            cat_stats = risk_df.groupby('CATEGORY').agg(
+                total_txns=('COMBINED_RISK_SCORE', 'count'),
+                high_risk_cases=('RISK_LEVEL', lambda x: (x == 'HIGH').sum())
+            ).reset_index()
+            cat_stats['risk_density'] = (cat_stats['high_risk_cases'] / cat_stats['total_txns']) * 100
+            
+            heatmap_data = cat_stats.sort_values(by='risk_density', ascending=False).to_dict('records')
+            
+            # 3. Global Scam Stats (from central model)
+            return {
+                "tool": "market_fraud_insights",
+                "global_scam_trends": GLOBAL_SCAM_STATS,
+                "local_cat_fraud_heatmap": [
+                    {
+                        "category": r['CATEGORY'],
+                        "risk_density_pct": round(r['risk_density'], 2),
+                        "high_risk_cases": int(r['high_risk_cases'])
+                    } for r in heatmap_data[:10]
+                ],
+                "summary": "Investment and BEC scams lead global losses ($65B+), while local data shows highest risk density in " + 
+                           f"{heatmap_data[0]['CATEGORY'] if not cat_stats.empty else 'shopping_net'}."
+            }
+        except Exception as e:
+            return {"error": str(e)}
+
 
     # ── CHAT ROUTER ────────────────────────────────────────────────────────
 
@@ -690,8 +734,12 @@ class FinancialAdvisorAgent:
         v = os.environ.get("ENABLE_MULTI_AGENT_ADVISOR", "").strip().lower()
         return v in ("1", "true", "yes")
 
-    def chat(self, message: str, user_id: str) -> dict[str, Any]:
-        """Route a natural-language question to the right tool(s). Multi-agent path when ENABLE_MULTI_AGENT_ADVISOR is set."""
+    def chat(self, message: str, user_id: str, session_id: str | None = None) -> dict[str, Any]:
+        """Route a natural-language question to the right tool(s). Supports session history."""
+        if session_id:
+            memory = get_memory()
+            memory.add_message(session_id, "user", message)
+
         if self._multi_agent_enabled():
             from agents.financial_orchestrator import FinancialOrchestrator
             if not hasattr(self, "_orchestrator"):
@@ -759,13 +807,19 @@ class FinancialAdvisorAgent:
             results.append(self.tool_surplus_optimizer(user_id))
         if any(k in msg for k in ["liquid", "guard", "balance", "upcoming", "bills"]):
             results.append(self.tool_liquidity_guard(user_id))
+        if any(k in msg for k in ["market", "heatmap", "global", "trend", "scam stats", "fraud overview"]):
+            results.append(self.tool_market_fraud_insights())
+            show_chart = True
 
         # Fallback: spending summary
         if not results:
             results.append(self.tool_spending_summary(user_id))
             show_chart = True
 
-        reply = self._compose_reply(message, results)
+        reply = self._compose_reply(message, results, session_id=session_id)
+        if session_id:
+            get_memory().add_message(session_id, "assistant", reply)
+
         return {
             "reply": reply,
             "tool_results": results,
@@ -773,13 +827,22 @@ class FinancialAdvisorAgent:
             "show_chart": show_chart,
         }
 
-    def _compose_reply(self, question: str, tool_results: list[dict]) -> str:
+    def _compose_reply(self, question: str, tool_results: list[dict], session_id: str | None = None) -> str:
         """Compose a detailed, professional reply. Uses LLM when available, else templates."""
         if self.llm and hasattr(self.llm, "generate"):
             try:
+                history = ""
+                if session_id:
+                    history = get_memory().get_history(session_id)
+                
                 context = "\n".join(str(r) for r in tool_results[:6])
-                prompt = f"User asked: {question}\n\nData:\n{context}\n\nGive a short, professional reply in 2-4 bullet points. Use the numbers from the data."
-                out = self.llm.generate(prompt, max_tokens=280, temp=0.3)
+                prompt = f"System: You are a professional Financial Advisor. Use tool data to answer specifically. Stay concise.\n\n"
+                if history:
+                    prompt += f"Conversation History:\n{history}\n\n"
+                
+                prompt += f"Recent Data:\n{context}\n\nNew Question: {question}\n\nAssistant:"
+                
+                out = self.llm.generate(prompt, max_tokens=400, temp=0.4)
                 if out and out.strip():
                     return out.strip()
             except Exception:
@@ -965,6 +1028,16 @@ class FinancialAdvisorAgent:
                     f"Assumed Balance: ${r['assumed_balance']:,.2f}\n"
                     f"Upcoming Bills (7 Days): **${r['upcoming_7d_bills']:,.2f}**\n"
                     f"Risk Status: **{r['liquidity_risk']}**"
+                )
+
+            elif tool == "market_fraud_insights":
+                trends = "\n".join(f"  - **{k}**: ${v}B" for k, v in list(r['global_scam_trends'].items())[:4])
+                local = "\n".join(f"  - **{it['category']}**: {it['risk_density_pct']}% risk density" for it in r['local_cat_fraud_heatmap'][:4])
+                parts.append(
+                    f"**📊 Market Fraud Intelligence**\n\n"
+                    f"**Global Scam Losses (FBI/IC3):**\n{trends}\n\n"
+                    f"**Local Data Risk Density (Heatmap):**\n{local}\n\n"
+                    f"💡 *Summary:* {r['summary']}"
                 )
 
         return "\n\n---\n\n".join(parts) if parts else "No insights found for your query. Try asking about spending, savings, or fraud detection."

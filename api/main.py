@@ -340,7 +340,7 @@ async def advisor_chat(req: AdvisorChatRequest, request: Request):
     if not _advisor_agent:
         detail = f"Financial Advisor not loaded: {_advisor_load_error}" if _advisor_load_error else "Financial Advisor not loaded."
         raise HTTPException(status_code=503, detail=detail)
-    result = await anyio.to_thread.run_sync(_advisor_agent.chat, req.message, req.user_id)
+    result = await anyio.to_thread.run_sync(_advisor_agent.chat, req.message, req.user_id, req.session_id)
     return AdvisorChatResponse(
         user_id=req.user_id,
         message=req.message,
@@ -356,6 +356,14 @@ async def advisor_users(request: Request, session_id: Optional[str] = Query(None
         detail = f"Financial Advisor not loaded: {_advisor_load_error}" if _advisor_load_error else "Financial Advisor not loaded."
         raise HTTPException(status_code=503, detail=detail)
     return {"users": _advisor_agent.get_all_users()}
+
+
+@app.post("/api/advisor/reset", tags=["AI Financial Advisor"])
+async def advisor_reset(session_id: str = Query(...)):
+    """Clear conversation history for a specific session."""
+    from agents.memory import get_memory
+    get_memory().clear(session_id)
+    return {"status": "cleared", "session_id": session_id}
 
 
 # ---------------------------------------------------------------------------
