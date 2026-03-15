@@ -184,39 +184,6 @@ graph LR
     LLM & Vision --> Reply[Synthesized Evidence Analysis]
 ```
 
-### 🛡️ Hybrid Fraud Intelligence (ML + Heuristics)
-The scoring engine combines 19 statistical "Heuristic Signals" with a supervised **Random Forest Classifier** to learn non-linear fraud signatures.
-
-```mermaid
-graph LR
-    subgraph Data [Ingestion]
-        TXN[(Transactions)]
-    end
-
-    subgraph FE [Heuristics]
-        direction LR
-        Z[Z-Score]
-        V[Velocity]
-        E[Entropy]
-    end
-
-    subgraph ML [Core ML]
-        RF[[Random Forest]]
-    end
-
-    subgraph Output [Risk Scoring]
-        SCORE{Final Score}
-    end
-
-    TXN --> FE
-    Z --> RF
-    V --> RF
-    E --> RF
-    RF --> SCORE
-```
-
----
-
 ## Local AI Intelligence
 
 Veriscan features a cutting-edge, local-first AI stack designed for maximum data privacy and performance on Mac hardware.
