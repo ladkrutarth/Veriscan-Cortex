@@ -57,7 +57,7 @@ graph TD
         Router[Agentic Router]
         SecAgent[🛡️ Security Analyst]
         FinAgent[💰 Financial Advisor]
-        PDFAgent[📄 PDF Intelligence]
+        MultiAgent[🧬 Multimodal Intelligence]
         DNAAgent[🧬 Spending DNA]
     end
 
@@ -77,9 +77,10 @@ graph TD
     FastAPI --> AuthA
     AuthA --> SessionStore
     FastAPI --> Router
-    Router --> SecAgent & FinAgent & PDFAgent & DNAAgent
-    SecAgent & FinAgent & PDFAgent --> LLM
-    PDFAgent --> RAG
+    Router --> SecAgent & FinAgent & MultiAgent & DNAAgent
+    SecAgent & FinAgent & MultiAgent --> LLM
+    MultiAgent --> VisionLLM
+    MultiAgent --> RAG
     RAG --> VectorDB
     SecAgent & FinAgent & DNAAgent --> LocalCSV
     LocalCSV -.->|ETL| Snowflake
@@ -89,7 +90,7 @@ graph TD
 In a production environment, Veriscan prioritizes **Identity Veracity**:
 - **Auth Auditor**: Every authentication request (Login) is intercepted by the Auth Auditor agent. It computes a **Login Risk Score** before assigning a globally unique `session_id`.
 - **State Propagation**: The `session_id` is propagated through all microservices, ensuring that agentic memory remains isolated and consistent for the duration of the user session.
-- **Zero-Trust RAG**: PDF documents are processed entirely within the local compute environment. Embeddings and raw text never leave the host machine, matching Tier-1 financial data privacy standards.
+- **Zero-Trust RAG**: Multimodal evidence (PDFs, Images, CSVs) is processed entirely within the local compute environment. Embeddings and raw extracted data never leave the host machine, matching Tier-1 financial data privacy standards.
 
 ### 🧩 Production Layer Specifications
 
@@ -110,10 +111,9 @@ Veriscan-Cortex works like a professional security team. Instead of one slow AI 
 
 ```mermaid
 graph LR
-    User([User Query]) --> ModelSelector{🔍 Model Selector}
-    
     ModelSelector -->|Security| SecAnalyst[🛡️ Security Analyst]
     ModelSelector -->|Financial| FinOrchestrator[💰 Financial Orchestrator]
+    ModelSelector -->|Multimodal| MultiAnalyst[🧬 Multimodal Expert]
 
     subgraph Security_Domain [Security Intelligence]
         direction LR
@@ -141,36 +141,37 @@ graph LR
 | **Scanner** | The Watchman | Scans the whole system for high-risk threats in milliseconds. | `tool_realtime_fraud_check` |
 | **Profile** | The Private Eye | Looks deep into a specific user's history and risk scores. | `tool_credit_score_impact` |
 
-### 📄 Multi-Stage Local RAG Architecture
-The RAG system features a **Multi-PDF Retrieval** pipeline. Users can index any number of PDF documents (e.g., bank statements, whitepapers, IC3 reports) locally. It uses semantic search with `all-MiniLM-L6-v2` embeddings and `Meta-Llama-3-8B` for context-aware Q&A.
+### 📄 Multi-Stage Multimodal RAG Architecture
+The RAG system features a **Session-Isolated Multimodal** pipeline. Users can index any evidence (PDF bank statements, JPG receipts, CSV finance data). It uses semantic search with `all-MiniLM-L6-v2` and incorporates the **Vision LLM** for visual reasoning.
 
 ```mermaid
 graph LR
     subgraph Ingestion [Privacy-First Ingestion]
-        PDF[(User PDFs)]
+        Docs[(PDF/CSV/TXT)]
+        IMG[(Images)]
         TXN[(Transactions)]
-        Expert[(Expert QA)]
     end
 
     subgraph RAG_Engine [Local Intelligence]
         direction TB
-        Chunk[1000-char Chunking]
+        OCR[Tesseract/Vision OCR]
+        Chunk[Semantic Chunking]
         Embed[all-MiniLM-L6-v2]
-        Chroma[(ChromaDB)]
+        Chroma[(ChromaDB: Session Filtered)]
     end
 
     subgraph Inference [Agentic Response]
         LLM[Meta-Llama-3-8B]
-        Safety[Stop-Token Guard]
+        Vision[LLaVA-1.5-7B]
     end
 
-    PDF --> Chunk
-    TXN --> Chunk
+    Docs & TXN --> Chunk
+    IMG --> OCR
+    OCR --> Chunk
     Chunk --> Embed
     Embed --> Chroma
-    Chroma --> LLM
-    LLM --> Safety
-    Safety --> Reply[Context-Rich Answer]
+    Chroma --> LLM & Vision
+    LLM & Vision --> Reply[Synthesized Evidence Analysis]
 ```
 
 ### 🛡️ Hybrid Fraud Intelligence (ML + Heuristics)
