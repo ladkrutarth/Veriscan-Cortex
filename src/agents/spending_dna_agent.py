@@ -5,24 +5,25 @@ Used for identity verification and anomaly detection.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
-import pandas as pd
-import numpy as np
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+import numpy as np
+import pandas as pd
+
+from paths import PROJECT_ROOT
+
 DNA_DATA_PATH = PROJECT_ROOT / "data" / "csv_data" / "spending_dna_dataset.csv"
 
 # The 8 canonical DNA axes and their display labels
 DNA_AXES = [
-    ("avg_txn_amount",        "Avg Transaction Amount"),
-    ("location_entropy",      "Location Entropy"),
-    ("weekend_ratio",         "Weekend Ratio"),
-    ("category_diversity",    "Category Diversity"),
-    ("time_of_day_pref",      "Time-of-Day Preference"),
-    ("risk_appetite_score",   "Risk Appetite"),
-    ("spending_velocity",     "Spending Velocity"),
-    ("merchant_loyalty_score","Merchant Loyalty"),
+    ("avg_txn_amount", "Avg Transaction Amount"),
+    ("location_entropy", "Location Entropy"),
+    ("weekend_ratio", "Weekend Ratio"),
+    ("category_diversity", "Category Diversity"),
+    ("time_of_day_pref", "Time-of-Day Preference"),
+    ("risk_appetite_score", "Risk Appetite"),
+    ("spending_velocity", "Spending Velocity"),
+    ("merchant_loyalty_score", "Merchant Loyalty"),
 ]
 
 TIME_LABELS = {0: "Morning", 1: "Afternoon", 2: "Evening", 3: "Night"}
@@ -68,34 +69,37 @@ class SpendingDNAAgent:
             raw[col] = round(val, 4)
             normalized[col] = self._normalize(col, val)
 
-        avg_trust  = round(float(user_df["trust_score"].mean()), 4)
-        avg_dev    = round(float(user_df["dna_deviation_score"].mean()), 4)
-        anomalous  = int(user_df["is_anomalous_session"].sum())
+        avg_trust = round(float(user_df["trust_score"].mean()), 4)
+        avg_dev = round(float(user_df["dna_deviation_score"].mean()), 4)
+        anomalous = int(user_df["is_anomalous_session"].sum())
         total_sess = len(user_df)
 
         trust_pct = round(avg_trust * 100, 1)
         trust_grade = (
-            "A — Trusted Profile ✅" if trust_pct >= 80 else
-            "B — Normal Variance 🟡" if trust_pct >= 60 else
-            "C — Elevated Risk 🟠" if trust_pct >= 40 else
-            "D — High Risk 🔴"
+            "A — Trusted Profile ✅"
+            if trust_pct >= 80
+            else "B — Normal Variance 🟡"
+            if trust_pct >= 60
+            else "C — Elevated Risk 🟠"
+            if trust_pct >= 40
+            else "D — High Risk 🔴"
         )
 
         radar_labels = [label for _, label in DNA_AXES]
         radar_values = [normalized[col] for col, _ in DNA_AXES]
 
         return {
-            "user_id":          user_id,
-            "radar_labels":     radar_labels,
-            "radar_values":     radar_values,
-            "raw_axes":         raw,
-            "normalized_axes":  normalized,
-            "avg_trust_score":  avg_trust,
-            "avg_deviation":    avg_dev,
-            "anomalous_count":  anomalous,
-            "total_sessions":   total_sess,
-            "trust_grade":      trust_grade,
-            "time_preference":  TIME_LABELS.get(int(raw.get("time_of_day_pref", 1)), "Afternoon"),
+            "user_id": user_id,
+            "radar_labels": radar_labels,
+            "radar_values": radar_values,
+            "raw_axes": raw,
+            "normalized_axes": normalized,
+            "avg_trust_score": avg_trust,
+            "avg_deviation": avg_dev,
+            "anomalous_count": anomalous,
+            "total_sessions": total_sess,
+            "trust_grade": trust_grade,
+            "time_preference": TIME_LABELS.get(int(raw.get("time_of_day_pref", 1)), "Afternoon"),
         }
 
     def compute_yearly_dna(self, user_id: str, year: int) -> dict[str, Any]:
@@ -111,11 +115,11 @@ class SpendingDNAAgent:
             else:
                 val = float(user_df[col].mean())
             normalized[col] = self._normalize(col, val)
-        
+
         return {
             "year": year,
             "radar_values": [normalized[col] for col, _ in DNA_AXES],
-            "avg_trust": round(float(user_df["trust_score"].mean()), 3) if not user_df.empty else 0
+            "avg_trust": round(float(user_df["trust_score"].mean()), 3) if not user_df.empty else 0,
         }
 
     def compute_monthly_evolution(self, user_id: str) -> dict[str, Any]:
@@ -125,17 +129,18 @@ class SpendingDNAAgent:
             return {"error": "No data"}
 
         # Group by year-month
-        trend = user_df.groupby(["year", "month"]).agg({
-            "trust_score": "mean",
-            "dna_deviation_score": "mean"
-        }).reset_index()
-        
+        trend = (
+            user_df.groupby(["year", "month"])
+            .agg({"trust_score": "mean", "dna_deviation_score": "mean"})
+            .reset_index()
+        )
+
         trend["label"] = trend.apply(lambda r: f"{int(r['year'])}-{int(r['month']):02d}", axis=1)
-        
+
         return {
             "labels": trend["label"].tolist(),
             "trust_scores": [round(x, 3) for x in trend["trust_score"].tolist()],
-            "deviations": [round(x, 3) for x in trend["dna_deviation_score"].tolist()]
+            "deviations": [round(x, 3) for x in trend["dna_deviation_score"].tolist()],
         }
 
     def compare_session(self, user_id: str, session_overrides: dict | None = None) -> dict[str, Any]:
@@ -160,28 +165,31 @@ class SpendingDNAAgent:
         else:
             # Simulate a new session from the last 20 rows of this user
             sample = self.df[self.df["user_id"] == user_id].tail(20).sample(1).iloc[0]
-            session_norm = {col: self._normalize(col, float(sample[col])) for col, _ in DNA_AXES if col in sample}
+            session_norm = {
+                col: self._normalize(col, float(sample[col])) for col, _ in DNA_AXES if col in sample
+            }
 
         # Deviation per axis
         deviations = {
-            col: round(abs(baseline_norm.get(col, 0) - session_norm.get(col, 0)), 4)
-            for col, _ in DNA_AXES
+            col: round(abs(baseline_norm.get(col, 0) - session_norm.get(col, 0)), 4) for col, _ in DNA_AXES
         }
         composite_deviation = round(float(np.mean(list(deviations.values()))), 4)
         trust_score = round(max(0.0, 1.0 - composite_deviation * 1.8), 4)
 
         return {
-            "user_id":              user_id,
-            "baseline_radar":       [baseline_norm.get(col, 0) for col, _ in DNA_AXES],
-            "session_radar":        [session_norm.get(col, 0) for col, _ in DNA_AXES],
-            "radar_labels":         [label for _, label in DNA_AXES],
-            "axis_deviations":      deviations,
-            "composite_deviation":  composite_deviation,
-            "session_trust_score":  trust_score,
-            "verdict":              (
-                "✅ Session matches DNA — Trusted"    if trust_score >= 0.75 else
-                "⚠️ Moderate deviation — Verify"     if trust_score >= 0.55 else
-                "🔴 High deviation — Challenge Auth"
+            "user_id": user_id,
+            "baseline_radar": [baseline_norm.get(col, 0) for col, _ in DNA_AXES],
+            "session_radar": [session_norm.get(col, 0) for col, _ in DNA_AXES],
+            "radar_labels": [label for _, label in DNA_AXES],
+            "axis_deviations": deviations,
+            "composite_deviation": composite_deviation,
+            "session_trust_score": trust_score,
+            "verdict": (
+                "✅ Session matches DNA — Trusted"
+                if trust_score >= 0.75
+                else "⚠️ Moderate deviation — Verify"
+                if trust_score >= 0.55
+                else "🔴 High deviation — Challenge Auth"
             ),
         }
 

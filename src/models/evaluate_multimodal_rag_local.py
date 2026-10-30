@@ -14,7 +14,6 @@ from pathlib import Path
 from models.multimodal_rag import MultimodalRAG
 from models.rag_relevance import extract_lexical_tokens, is_visual_query
 
-
 SESSION = "eval_mm_session_v1"
 
 STATEMENT_TXT = """\
@@ -109,9 +108,9 @@ def evaluate_multimodal_rag() -> float:
         assert is_visual_query("What is in the screenshot?")
 
         success = 0
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f" Multimodal RAG Eval — {len(cases)} cases")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         for i, case in enumerate(cases, 1):
             hits = rag.query(case["q"], n_results=5, session_id=SESSION)
@@ -142,7 +141,9 @@ def evaluate_multimodal_rag() -> float:
             print(f"[{i}/{len(cases)}] {mark} {case['q'][:70]}")
             if not ok:
                 print(f"     expect={case['expect_any']} refuse={case['refuse']}")
-                print(f"     top={[ (h.get('filename'), round(float(h.get('confidence',0)),2)) for h in hits[:3] ]}")
+                print(
+                    f"     top={[(h.get('filename'), round(float(h.get('confidence', 0)), 2)) for h in hits[:3]]}"
+                )
             else:
                 success += 1
 
@@ -154,9 +155,9 @@ def evaluate_multimodal_rag() -> float:
             assert "dark_scan.png" in names
 
         acc = success / len(cases)
-        print(f"\n{'='*60}")
-        print(f" Accuracy: {success}/{len(cases)} = {acc*100:.0f}%")
-        print(f"{'='*60}")
+        print(f"\n{'=' * 60}")
+        print(f" Accuracy: {success}/{len(cases)} = {acc * 100:.0f}%")
+        print(f"{'=' * 60}")
         return acc
     finally:
         shutil.rmtree(tmp_db, ignore_errors=True)

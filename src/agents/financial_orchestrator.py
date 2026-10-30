@@ -14,20 +14,50 @@ from agents.tool_registry import ToolRegistry, truncate_observation
 from agents.trajectory_log import log_trajectory
 from agents.transaction_calculation_agent import TransactionCalculationAgent
 
-
 CURRENT_KEYWORDS = [
-    "current", "this month", "recent", "last 30 days", "last 60", "last 90",
-    "latest transactions", "right now", "latest", "this month's", "recent activity",
+    "current",
+    "this month",
+    "recent",
+    "last 30 days",
+    "last 60",
+    "last 90",
+    "latest transactions",
+    "right now",
+    "latest",
+    "this month's",
+    "recent activity",
 ]
 CALCULATION_KEYWORDS = [
-    "total", "average", "how much", "calculate", "forecast", "compare months",
-    "breakdown", "percentage", "growth", "subscription", "subscriptions",
-    "month over month", "mom", "spending by category",
+    "total",
+    "average",
+    "how much",
+    "calculate",
+    "forecast",
+    "compare months",
+    "breakdown",
+    "percentage",
+    "growth",
+    "subscription",
+    "subscriptions",
+    "month over month",
+    "mom",
+    "spending by category",
 ]
 HISTORICAL_KEYWORDS = [
-    "last 2 years", "past year", "year over year", "yoy", "history", "historical",
-    "bank statement", "credit card history", "long term", "trend over time",
-    "last year vs", "two years", "24 months", "statement",
+    "last 2 years",
+    "past year",
+    "year over year",
+    "yoy",
+    "history",
+    "historical",
+    "bank statement",
+    "credit card history",
+    "long term",
+    "trend over time",
+    "last year vs",
+    "two years",
+    "24 months",
+    "statement",
 ]
 
 MAX_SUPERVISOR_DELEGATIONS = 3
@@ -109,15 +139,20 @@ class FinancialOrchestrator:
         reg = ToolRegistry()
 
         def run_current(period: str = "last_30", instruction: str = "") -> dict:
-            p = period if period in ("last_30", "last_60", "last_90") else self._parse_period(
-                f"{message} {instruction} {period}"
+            p = (
+                period
+                if period in ("last_30", "last_60", "last_90")
+                else self._parse_period(f"{message} {instruction} {period}")
             )
             return self.current_analyst.run(user_id, period=p)
 
         def run_calculation(calculation: str = "summary", instruction: str = "") -> dict:
-            calc = calculation if calculation in (
-                "summary", "total", "average_by_category", "mom_change", "forecast", "subscriptions"
-            ) else self._parse_calculation(message, instruction)
+            calc = (
+                calculation
+                if calculation
+                in ("summary", "total", "average_by_category", "mom_change", "forecast", "subscriptions")
+                else self._parse_calculation(message, instruction)
+            )
             return self.calc_agent.run(user_id, calculation=calc)
 
         def run_historical(instruction: str = "") -> dict:
@@ -187,9 +222,7 @@ class FinancialOrchestrator:
                     )
                 fr = data.get("recent_fraud_risk") or {}
                 if isinstance(fr, dict) and fr.get("alerts_count", 0) > 0:
-                    parts.append(
-                        f"**Fraud/risk:** {fr['alerts_count']} alert(s) in recent transactions."
-                    )
+                    parts.append(f"**Fraud/risk:** {fr['alerts_count']} alert(s) in recent transactions.")
 
             elif agent_name == "calculation":
                 if "total" in data:
@@ -275,7 +308,7 @@ class FinancialOrchestrator:
         approved: bool = False,
     ) -> dict[str, Any]:
         """LLM supervisor: delegate to workers, then synthesize."""
-        from agents.react_loop import ReactLoop, extract_json
+        from agents.react_loop import extract_json
 
         registry = self.build_worker_registry(user_id, message)
         history = get_memory().get_history(session_id) if session_id else ""
@@ -304,7 +337,7 @@ class FinancialOrchestrator:
                 observations and step > MAX_SUPERVISOR_DELEGATIONS
             ):
                 prompt_parts.append(
-                    'CRITICAL: Enough worker results. Reply ONLY '
+                    "CRITICAL: Enough worker results. Reply ONLY "
                     '{"action":"final","answer":"<coherent reply grounded in worker results>"}.'
                 )
             prompt_parts.append("Respond with JSON only:")
@@ -325,9 +358,7 @@ class FinancialOrchestrator:
                 trace.append(f"step{step}:parse_fail")
                 if tool_results:
                     # Synthesize from what we have
-                    agent_results = [
-                        {"agent": r.get("agent", "worker"), "data": r} for r in tool_results
-                    ]
+                    agent_results = [{"agent": r.get("agent", "worker"), "data": r} for r in tool_results]
                     reply = self._synthesize(message, agent_results)
                     if self.llm and hasattr(self.llm, "generate"):
                         try:
@@ -340,7 +371,9 @@ class FinancialOrchestrator:
                                 reply = out.strip()
                         except Exception:
                             pass
-                    return self._pack(reply, tool_results, actions, tools_used, trace, user_id, message, "partial")
+                    return self._pack(
+                        reply, tool_results, actions, tools_used, trace, user_id, message, "partial"
+                    )
                 fb = self._chat_keyword(message, user_id)
                 fb["used_fallback"] = True
                 fb["trace"] = trace + fb.get("trace", [])
@@ -353,11 +386,11 @@ class FinancialOrchestrator:
             if action == "final":
                 answer = str(decision.get("answer") or "").strip()
                 if not answer and tool_results:
-                    agent_results = [
-                        {"agent": r.get("agent", "worker"), "data": r} for r in tool_results
-                    ]
+                    agent_results = [{"agent": r.get("agent", "worker"), "data": r} for r in tool_results]
                     answer = self._synthesize(message, agent_results)
-                return self._pack(answer, tool_results, actions, tools_used, trace, user_id, message, "success")
+                return self._pack(
+                    answer, tool_results, actions, tools_used, trace, user_id, message, "success"
+                )
 
             if action != "tool":
                 continue
@@ -386,7 +419,11 @@ class FinancialOrchestrator:
 
         # Cap hit — template synthesize
         agent_results = [{"agent": r.get("agent", "worker"), "data": r} for r in tool_results]
-        reply = self._synthesize(message, agent_results) if tool_results else self._chat_keyword(message, user_id)["reply"]
+        reply = (
+            self._synthesize(message, agent_results)
+            if tool_results
+            else self._chat_keyword(message, user_id)["reply"]
+        )
         return self._pack(reply, tool_results, actions, tools_used, trace, user_id, message, "max_steps")
 
     def _pack(

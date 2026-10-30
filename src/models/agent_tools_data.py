@@ -3,11 +3,16 @@ Data-only tools for risk and user profile. No MLX/LLM imports.
 Used by the API so /api/fraud/high-risk and /api/user/{id}/risk work without loading GuardAgent.
 """
 
-from pathlib import Path
+from __future__ import annotations
+
+import logging
 from typing import Any, Dict, List
+
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from paths import LEGACY_MODEL_DIR, MODEL_DIR, PROJECT_ROOT
+
+logger = logging.getLogger(__name__)
 
 DATA_PATHS = {
     "features": PROJECT_ROOT / "data" / "csv_data" / "features_output.csv",
@@ -30,7 +35,7 @@ GLOBAL_SCAM_STATS = {
     "Employment Scams": 2.0,
     "Credit Card/Check Fraud": 1.9,
     "Real Estate/Rental": 1.4,
-    "Misc. Cyber-enabled": 1.2
+    "Misc. Cyber-enabled": 1.2,
 }
 
 
@@ -53,21 +58,25 @@ def tool_get_user_risk_profile(user_id: str) -> Dict[str, Any]:
         user_data = _auth_df[_auth_df["USER_ID"] == user_id]
         if not user_data.empty:
             row = user_data.iloc[0]
-            result.update({
-                "found": True,
-                "security_level": str(row.get("RECOMMENDED_SECURITY_LEVEL", "N/A")),
-                "avg_risk": float(row.get("AVG_RISK", 0)),
-                "high_risk_count": int(row.get("HIGH_RISK_COUNT", 0))
-            })
+            result.update(
+                {
+                    "found": True,
+                    "security_level": str(row.get("RECOMMENDED_SECURITY_LEVEL", "N/A")),
+                    "avg_risk": float(row.get("AVG_RISK", 0)),
+                    "high_risk_count": int(row.get("HIGH_RISK_COUNT", 0)),
+                }
+            )
     if _fraud_df is not None:
         user_data = _fraud_df[_fraud_df["USER_ID"] == user_id]
         if not user_data.empty:
-            result.update({
-                "found": True,
-                "txn_count": len(user_data),
-                "avg_combined_score": float(user_data["COMBINED_RISK_SCORE"].mean()),
-                "risk_distribution": user_data["RISK_LEVEL"].value_counts().to_dict()
-            })
+            result.update(
+                {
+                    "found": True,
+                    "txn_count": len(user_data),
+                    "avg_combined_score": float(user_data["COMBINED_RISK_SCORE"].mean()),
+                    "risk_distribution": user_data["RISK_LEVEL"].value_counts().to_dict(),
+                }
+            )
     return result
 
 
@@ -84,23 +93,38 @@ def tool_get_high_risk_transactions(limit: int = 10) -> List[Dict]:
 # ---------------------------------------------------------------------------
 _model_cache = None
 _encoders_cache = None
+_warned_no_model = False
 
 
 def _load_fraud_model():
-    global _model_cache, _encoders_cache
+    global _model_cache, _encoders_cache, _warned_no_model
     if _model_cache is not None:
         return _model_cache, _encoders_cache
-    model_path = PROJECT_ROOT / "models" / "fraud_model_rf.joblib"
-    enc_path = PROJECT_ROOT / "models" / "encoders.joblib"
-    if model_path.exists() and enc_path.exists():
-        import joblib
-        _model_cache = joblib.load(model_path)
-        _encoders_cache = joblib.load(enc_path)
+    for model_dir in (MODEL_DIR, LEGACY_MODEL_DIR):
+        model_path = model_dir / "fraud_model_rf.joblib"
+        enc_path = model_dir / "encoders.joblib"
+        if model_path.exists() and enc_path.exists():
+            import joblib
+
+            _model_cache = joblib.load(model_path)
+            _encoders_cache = joblib.load(enc_path)
+            logger.info("Loaded fraud model from %s", model_dir)
+            return _model_cache, _encoders_cache
+    if not _warned_no_model:
+        _warned_no_model = True
+        logger.warning("No trained fraud model in %s; using the category/amount heuristic", MODEL_DIR)
     return _model_cache, _encoders_cache
 
 
 # Heuristic when no trained model: category + amount (fast, no disk)
-_CATEGORY_RISK = {"shopping_net": 0.5, "travel": 0.4, "entertainment": 0.35, "health": 0.3, "transfer": 0.6, "gas_transport": 0.2}
+_CATEGORY_RISK = {
+    "shopping_net": 0.5,
+    "travel": 0.4,
+    "entertainment": 0.35,
+    "health": 0.3,
+    "transfer": 0.6,
+    "gas_transport": 0.2,
+}
 
 
 def score_transaction(category: str, amt: float, merchant: str, hour: int, day_of_week: int) -> float:
@@ -110,11 +134,19 @@ def score_transaction(category: str, amt: float, merchant: str, hour: int, day_o
     model, encoders = _load_fraud_model()
     if model is not None and encoders is not None:
         try:
-            import numpy as np
-            X = pd.DataFrame([{
-                "category": category, "amt": amt, "gender": "M", "state": "CA",
-                "merchant": merchant or "unknown", "hour": hour, "day_of_week": day_of_week,
-            }])
+            X = pd.DataFrame(
+                [
+                    {
+                        "category": category,
+                        "amt": amt,
+                        "gender": "M",
+                        "state": "CA",
+                        "merchant": merchant or "unknown",
+                        "hour": hour,
+                        "day_of_week": day_of_week,
+                    }
+                ]
+            )
             for col in ["category", "gender", "state", "merchant"]:
                 if col in encoders:
                     X[col] = encoders[col].transform(X[col].astype(str))

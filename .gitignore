@@ -26,3 +26,9 @@ data/user_uploads/
 artifacts/*.joblib
 logs/trajectories.jsonl
 logs/pipeline_logs.csv
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/

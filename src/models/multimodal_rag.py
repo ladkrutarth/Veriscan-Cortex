@@ -10,9 +10,10 @@ Improvements vs naive path:
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
-import re
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,6 +23,7 @@ import pandas as pd
 import pypdf
 from chromadb.utils import embedding_functions
 
+from core.logging_config import redact_session
 from models.rag_relevance import (
     apply_lexical_boost,
     candidate_n,
@@ -36,7 +38,9 @@ from models.rag_relevance import (
     rerank_hits,
     snippet_fallback_answer,
 )
-from paths import CHROMA_MULTIMODAL_DIR, PROJECT_ROOT, UPLOADS_DIR
+from paths import CHROMA_MULTIMODAL_DIR, UPLOADS_DIR
+
+logger = logging.getLogger(__name__)
 
 DB_PATH = CHROMA_MULTIMODAL_DIR
 MIN_PAGE_CHARS = 40
@@ -56,7 +60,7 @@ class MultimodalRAG:
             name="veriscan_multimodal",
             embedding_function=self._embedding_function,
         )
-        print(f"✅ Multimodal RAG Engine initialized with {self._collection.count()} documents.")
+        logger.info(f"Multimodal RAG Engine initialized with {self._collection.count()} documents.")
 
     # ── Delete prior chunks for a file ─────────────────────────────────────
 
@@ -77,7 +81,7 @@ class MultimodalRAG:
                 self._collection.delete(ids=ids)
         except Exception as e:
             # Older Chroma may not like $and — try sequential soft cleanup by id prefix
-            print(f"⚠️ delete_file_chunks soft-fail ({e}); continuing upsert.")
+            logger.warning(f"delete_file_chunks soft-fail ({e}); continuing upsert.")
 
     # ── OCR / raster helpers ───────────────────────────────────────────────
 
@@ -88,6 +92,7 @@ class MultimodalRAG:
         self._tesseract_configured = True
         try:
             import shutil
+
             import pytesseract
 
             existing = getattr(pytesseract.pytesseract, "tesseract_cmd", None)
@@ -128,7 +133,7 @@ class MultimodalRAG:
                     lines.append(str(text).strip())
             return "\n".join(lines).strip()
         except Exception as e:
-            print(f"⚠️ RapidOCR unavailable: {e}")
+            logger.warning(f"RapidOCR unavailable: {e}")
             return ""
 
     def _ocr_pil_image(self, img) -> str:
@@ -141,7 +146,7 @@ class MultimodalRAG:
             if len(text) >= MIN_OCR_CHARS:
                 return text
         except Exception as e:
-            print(f"⚠️ Tesseract OCR unavailable: {e}")
+            logger.warning(f"Tesseract OCR unavailable: {e}")
             text = ""
 
         rapid = self._ocr_with_rapidocr(img)
@@ -192,10 +197,8 @@ class MultimodalRAG:
                 tmp.write(pdf_bytes)
                 tmp_path = Path(tmp.name)
             img = self._rasterize_pdf_page_from_path(tmp_path, page_index)
-            try:
+            with contextlib.suppress(Exception):
                 tmp_path.unlink(missing_ok=True)
-            except Exception:
-                pass
             return img
         except Exception:
             return None
@@ -241,13 +244,13 @@ class MultimodalRAG:
             img = Image.open(image_path)
             return self._ocr_pil_image(img)
         except Exception as e:
-            print(f"⚠️ Image OCR failed for {image_path.name}: {e}")
+            logger.warning(f"Image OCR failed for {image_path.name}: {e}")
             return ""
 
     def _extract_text_from_image_bytes(self, file_bytes: bytes) -> Tuple[str, Optional[str]]:
         """Returns (ocr_text, error)."""
         try:
-            from PIL import Image, ImageOps, ImageEnhance
+            from PIL import Image, ImageEnhance, ImageOps
 
             img = Image.open(io.BytesIO(file_bytes))
             if img.mode in ("RGBA", "P"):
@@ -285,9 +288,7 @@ class MultimodalRAG:
                 raw = p.read_bytes()
                 text, err = self._extract_text_from_image_bytes(raw)
                 last_err = err or last_err
-                files_info.append(
-                    {"filename": p.name, "ocr_chars": len(text or ""), "path": str(p)}
-                )
+                files_info.append({"filename": p.name, "ocr_chars": len(text or ""), "path": str(p)})
                 if text and len(text.strip()) >= MIN_OCR_CHARS:
                     parts.append(f"[Live OCR from {p.name}]\n{text.strip()}")
                 else:
@@ -386,9 +387,7 @@ class MultimodalRAG:
             return bool(self.session_image_files(session_id) or self.resolve_session_image_paths(session_id))
         avg_conf = sum(float(h.get("confidence", 0)) for h in hits) / max(len(hits), 1)
         weak = avg_conf < 0.35 or all(
-            (h.get("metadata") or {}).get("ocr_weak") == "true"
-            for h in hits
-            if h.get("type") == "image_doc"
+            (h.get("metadata") or {}).get("ocr_weak") == "true" for h in hits if h.get("type") == "image_doc"
         )
         return weak and bool(self.resolve_session_image_paths(session_id))
 
@@ -403,21 +402,23 @@ class MultimodalRAG:
         session_dir = UPLOADS_DIR / sess_id
 
         if not session_dir.exists():
-            print(f"DEBUG: No upload directory found for session {sess_id}")
+            logger.debug("No upload directory for session %s", redact_session(sess_id))
             return
 
-        print(f"⚡ Indexing user evidence for session: {sess_id}...")
+        logger.info("Indexing user evidence for session %s", redact_session(sess_id))
         for file_path in session_dir.glob("*"):
             if not file_path.is_file():
                 continue
             try:
                 file_bytes = file_path.read_bytes()
                 result = self.index_file_bytes(file_path.name, file_bytes, session_id=sess_id)
-                print(f"  → {file_path.name}: {result.get('status')} {result}")
+                logger.info("Indexed %s: %s", file_path.name, result.get("status"))
             except Exception as e:
-                print(f"Error indexing {file_path.name}: {e}")
+                logger.warning(f"Error indexing {file_path.name}: {e}")
 
-        print(f"✅ Multimodal Index for session {sess_id} complete. Total DB size: {self._collection.count()}")
+        logger.info(
+            "Session %s indexed; collection size %d", redact_session(sess_id), self._collection.count()
+        )
 
     # ── Core indexing from bytes ───────────────────────────────────────────
 
@@ -462,9 +463,7 @@ class MultimodalRAG:
         except Exception as e:
             return {"filename": filename, "status": "error", "error": str(e)}
 
-    def _index_pdf_bytes(
-        self, filename: str, stem: str, file_bytes: bytes, session_id: str, ts: str
-    ) -> dict:
+    def _index_pdf_bytes(self, filename: str, stem: str, file_bytes: bytes, session_id: str, ts: str) -> dict:
         pages = self._extract_pages_from_pdf_bytes(file_bytes)
         ocr_pages = sum(1 for p in pages if p.get("ocr_used"))
         nonempty = [p for p in pages if (p.get("text") or "").strip()]
@@ -548,9 +547,7 @@ class MultimodalRAG:
             "chunks": len(docs),
         }
 
-    def _index_csv_bytes(
-        self, filename: str, stem: str, file_bytes: bytes, session_id: str, ts: str
-    ) -> dict:
+    def _index_csv_bytes(self, filename: str, stem: str, file_bytes: bytes, session_id: str, ts: str) -> dict:
         df = pd.read_csv(io.BytesIO(file_bytes))
         num_cols = df.select_dtypes(include=["number"]).columns.tolist()
         cat_cols = df.select_dtypes(include=["object"]).columns.tolist()
@@ -700,7 +697,7 @@ class MultimodalRAG:
                 include=["documents", "metadatas", "distances"],
             )
         except Exception as e:
-            print(f"⚠️ Multimodal query error ({e}); retrying with session filter only...")
+            logger.warning(f"Multimodal query error ({e}); retrying with session filter only...")
             try:
                 self._collection = self._client.get_or_create_collection(
                     name="veriscan_multimodal",
@@ -714,7 +711,7 @@ class MultimodalRAG:
                     include=["documents", "metadatas", "distances"],
                 )
             except Exception as e2:
-                print(f"⚠️ Multimodal query failed: {e2}")
+                logger.warning(f"Multimodal query failed: {e2}")
                 return []
 
         parsed: List[Dict[str, Any]] = []
@@ -771,7 +768,7 @@ class MultimodalRAG:
                             }
                         )
             except Exception as e:
-                print(f"Recency fallback error: {e}")
+                logger.warning(f"Recency fallback error: {e}")
 
         boosted = apply_lexical_boost(query_text, parsed)
         preferred = prefer_content_types(boosted, query_text)

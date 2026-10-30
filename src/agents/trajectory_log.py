@@ -10,7 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from paths import PROJECT_ROOT
+
 DEFAULT_LOG_PATH = PROJECT_ROOT / "logs" / "trajectories.jsonl"
 
 

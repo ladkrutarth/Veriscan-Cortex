@@ -4,7 +4,6 @@ Uploads: raw transactions, features, fraud scores, auth profiles, and pipeline l
 Also creates all schema tables from sql/create_tables.sql.
 """
 
-import sys
 import time
 from pathlib import Path
 
@@ -22,15 +21,17 @@ def load_config():
 
 
 def get_connection(cfg):
-    import snowflake.connector
     import os
+
+    import snowflake.connector
+
     sf = cfg["snowflake"]
-    
+
     # Prioritize environment variables for security
     user = os.getenv("SNOWFLAKE_USER", sf["user"])
     password = os.getenv("SNOWFLAKE_PASSWORD", sf["password"])
     account = os.getenv("SNOWFLAKE_ACCOUNT", sf["account"])
-    
+
     return snowflake.connector.connect(
         user=user,
         password=password,
@@ -51,7 +52,9 @@ def setup_database(cursor, cfg):
     cursor.execute(f"USE DATABASE {db}")
     cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     cursor.execute(f"USE SCHEMA {schema}")
-    cursor.execute(f"CREATE WAREHOUSE IF NOT EXISTS {wh} WITH WAREHOUSE_SIZE='XSMALL' AUTO_SUSPEND=60 AUTO_RESUME=TRUE")
+    cursor.execute(
+        f"CREATE WAREHOUSE IF NOT EXISTS {wh} WITH WAREHOUSE_SIZE='XSMALL' AUTO_SUSPEND=60 AUTO_RESUME=TRUE"
+    )
     cursor.execute(f"USE WAREHOUSE {wh}")
     print(f"✅ Database {db}, schema {schema}, warehouse {wh} ready.\n")
 
@@ -161,8 +164,11 @@ def upload_csv(conn, csv_path, table_name, truncate_first=True):
     if truncate_first:
         conn.cursor().execute(f"TRUNCATE TABLE IF EXISTS {table_name}")
 
-    success, num_chunks, num_rows, _ = write_pandas(
-        conn, df, table_name, quote_identifiers=False,
+    _success, _num_chunks, num_rows, _ = write_pandas(
+        conn,
+        df,
+        table_name,
+        quote_identifiers=False,
     )
     print(f"  ✅ {table_name}: {num_rows} rows loaded from {csv_path.name}")
     return num_rows
@@ -189,16 +195,14 @@ def main():
 
     # 3. Upload all datasets
     uploads = [
-        (PROJECT_ROOT / "Week-4_Hand-on-Session" / "transactions_export_20260213_000349.csv",
-         "RAW_TRANSACTIONS"),
-        (PROJECT_ROOT / "features_output.csv",
-         "TRANSACTION_FEATURES"),
-        (PROJECT_ROOT / "fraud_scores_output.csv",
-         "FRAUD_SCORES"),
-        (PROJECT_ROOT / "auth_profiles_output.csv",
-         "AUTH_PROFILES"),
-        (PROJECT_ROOT / "logs" / "pipeline_logs.csv",
-         "PIPELINE_RUNS"),
+        (
+            PROJECT_ROOT / "Week-4_Hand-on-Session" / "transactions_export_20260213_000349.csv",
+            "RAW_TRANSACTIONS",
+        ),
+        (PROJECT_ROOT / "features_output.csv", "TRANSACTION_FEATURES"),
+        (PROJECT_ROOT / "fraud_scores_output.csv", "FRAUD_SCORES"),
+        (PROJECT_ROOT / "auth_profiles_output.csv", "AUTH_PROFILES"),
+        (PROJECT_ROOT / "logs" / "pipeline_logs.csv", "PIPELINE_RUNS"),
     ]
 
     print("📤 Uploading datasets …")

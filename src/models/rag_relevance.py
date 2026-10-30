@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Sequence
+
+logger = logging.getLogger(__name__)
 
 # Chroma default space for SentenceTransformerEmbeddingFunction is L2.
 # Empirically, dist ~> 1.2 is usually off-topic for MiniLM on short docs.
@@ -48,7 +51,7 @@ def _get_cross_encoder():
 
         return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
     except Exception as e:
-        print(f"⚠️ Cross-encoder unavailable ({e}); using distance ranking only.")
+        logger.warning(f"Cross-encoder unavailable ({e}); using distance ranking only.")
         return None
 
 
@@ -80,7 +83,7 @@ def rerank_hits(
     try:
         scores = model.predict(pairs)
     except Exception as e:
-        print(f"⚠️ Rerank failed ({e}); using distance ranking.")
+        logger.warning(f"Rerank failed ({e}); using distance ranking.")
         return sorted(
             hits,
             key=lambda h: float(h.get("confidence", 0.0)),
@@ -123,11 +126,7 @@ def filter_by_relevance(
         return kept
 
     # Soft fallback: take best few weak hits rather than inventing context
-    soft = [
-        h
-        for h in hits
-        if float(h.get("confidence", 0.0)) >= relax_min_confidence
-    ]
+    soft = [h for h in hits if float(h.get("confidence", 0.0)) >= relax_min_confidence]
     return soft[:3] if soft else list(hits)[:1]
 
 
@@ -143,9 +142,31 @@ def extract_lexical_tokens(query_text: str) -> List[str]:
     tokens.extend(re.findall(r"\b[\w\-]+\.(?:pdf|png|jpg|jpeg|csv|txt|json)\b", q, flags=re.I))
     # significant words (length >= 4), skip stopwords
     stop = {
-        "what", "when", "where", "which", "that", "this", "with", "from", "have",
-        "does", "about", "please", "show", "tell", "give", "list", "into", "your",
-        "document", "documents", "file", "files", "image", "images", "page",
+        "what",
+        "when",
+        "where",
+        "which",
+        "that",
+        "this",
+        "with",
+        "from",
+        "have",
+        "does",
+        "about",
+        "please",
+        "show",
+        "tell",
+        "give",
+        "list",
+        "into",
+        "your",
+        "document",
+        "documents",
+        "file",
+        "files",
+        "image",
+        "images",
+        "page",
     }
     for w in re.findall(r"[A-Za-z][A-Za-z0-9_\-]{3,}", q):
         if w.lower() not in stop:
@@ -278,9 +299,7 @@ def is_unreadable_visual_evidence(text: str) -> bool:
     # Filename-only / near-empty visual blocks
     if t.startswith("[image ") and "ocr" in t and len(t) < 280:
         return True
-    if "screenshot" in t and len(t) < 120 and "live ocr" not in t:
-        return True
-    return False
+    return bool("screenshot" in t and len(t) < 120 and "live ocr" not in t)
 
 
 def grounded_system_prompt(context: str, visual_context: str = "") -> str:

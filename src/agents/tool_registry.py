@@ -11,7 +11,6 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-
 # Tools that must not run without an explicit approved=True from the API/caller.
 REQUIRE_HITL = frozenset({"challenge_auth"})
 
@@ -60,9 +59,7 @@ class ToolRegistry:
         for spec in self._tools.values():
             hitl = " [REQUIRES_APPROVAL]" if spec.requires_hitl else ""
             props = spec.parameters.get("properties", {})
-            arg_bits = ", ".join(
-                f"{k}: {v.get('type', 'any')}" for k, v in props.items()
-            )
+            arg_bits = ", ".join(f"{k}: {v.get('type', 'any')}" for k, v in props.items())
             lines.append(f"- {spec.name}({arg_bits}){hitl}: {spec.description}")
         return "\n".join(lines)
 
@@ -126,7 +123,7 @@ class ToolRegistry:
             for s in self._tools.values()
         ]
 
-    def subset(self, names: list[str]) -> "ToolRegistry":
+    def subset(self, names: list[str]) -> ToolRegistry:
         """Return a new registry containing only the named tools (order preserved)."""
         out = ToolRegistry()
         for name in names:
