@@ -7,7 +7,6 @@ _ROOT = _Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT))
 
-import pandas as pd
 from models.rag_engine_local import RAGEngineLocal
 
 
@@ -53,9 +52,7 @@ def evaluate_rag():
 
             snippet = doc[:100].replace("\n", " ")
             status = "✅ RELEVANT" if (is_hit and strong) else "❌ WEAK/IRRELEVANT"
-            print(
-                f"  [{i+1}] {status} | conf={conf:.3f} | type={res.get('type')} | {snippet}..."
-            )
+            print(f"  [{i + 1}] {status} | conf={conf:.3f} | type={res.get('type')} | {snippet}...")
 
         precision = hit_count / 3 if results else 0.0
         total_score += precision

@@ -3,27 +3,30 @@ Veriscan — FastAPI Pydantic Schemas
 Request/Response models for all REST endpoints.
 """
 
-from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
 # Fraud Prediction
 # ---------------------------------------------------------------------------
 
+
 class TransactionInput(BaseModel):
     """Input for single-transaction fraud prediction."""
-    category: str = Field(..., example="shopping_net")
-    amt: float = Field(..., example=499.99)
-    gender: str = Field(..., example="M")
-    state: str = Field(..., example="CA")
-    merchant: str = Field(..., example="fraud_Kirlin and Sons")
-    hour: int = Field(..., ge=0, le=23, example=14)
-    day_of_week: int = Field(..., ge=0, le=6, example=3)
+
+    category: str = Field(..., examples=["shopping_net"])
+    amt: float = Field(..., examples=[499.99])
+    gender: str = Field(..., examples=["M"])
+    state: str = Field(..., examples=["CA"])
+    merchant: str = Field(..., examples=["fraud_Kirlin and Sons"])
+    hour: int = Field(..., ge=0, le=23, examples=[14])
+    day_of_week: int = Field(..., ge=0, le=6, examples=[3])
 
 
 class FraudPredictionResponse(BaseModel):
     """Response from the fraud prediction endpoint."""
+
     risk_score: float
     risk_level: str
     feature_importances: Dict[str, float]
@@ -33,13 +36,16 @@ class FraudPredictionResponse(BaseModel):
 # High-Risk Transactions
 # ---------------------------------------------------------------------------
 
+
 class HighRiskTransaction(BaseModel):
     """A single high-risk transaction record."""
+
     data: Dict[str, Any]
 
 
 class HighRiskTransactionsResponse(BaseModel):
     """Response from the high-risk transactions endpoint."""
+
     count: int
     transactions: List[Dict[str, Any]]
 
@@ -48,8 +54,10 @@ class HighRiskTransactionsResponse(BaseModel):
 # User Risk Profile
 # ---------------------------------------------------------------------------
 
+
 class UserRiskResponse(BaseModel):
     """Response from the user risk profile endpoint."""
+
     user_id: str
     found: bool
     security_level: Optional[str] = None
@@ -64,8 +72,10 @@ class UserRiskResponse(BaseModel):
 # Shared Agent Models
 # ---------------------------------------------------------------------------
 
+
 class AgentActionStep(BaseModel):
     """A single step in the agent's reasoning trace."""
+
     step: int
     tool: str
     args: Dict[str, Any]
@@ -76,15 +86,18 @@ class AgentActionStep(BaseModel):
 # RAG Query
 # ---------------------------------------------------------------------------
 
+
 class RAGQueryRequest(BaseModel):
     """Request for a RAG semantic search."""
-    query: str = Field(..., example="identity theft")
+
+    query: str = Field(..., examples=["identity theft"])
     n_results: int = Field(default=5, ge=1, le=20)
     session_id: Optional[str] = None
 
 
 class RAGResult(BaseModel):
     """A single RAG search result."""
+
     text: str
     confidence: float
     metadata: Optional[Dict[str, Any]] = None
@@ -92,19 +105,20 @@ class RAGResult(BaseModel):
 
 class RAGQueryResponse(BaseModel):
     """Response from the RAG query endpoint."""
+
     query: str
     count: int
     results: List[RAGResult]
-
-
 
 
 # ---------------------------------------------------------------------------
 # Health Check
 # ---------------------------------------------------------------------------
 
+
 class HealthResponse(BaseModel):
     """Response from the health check endpoint."""
+
     status: str
     version: str
     services: Dict[str, str]
@@ -114,10 +128,12 @@ class HealthResponse(BaseModel):
 # Feature 1: AI Financial Advisor Chat
 # ---------------------------------------------------------------------------
 
+
 class AdvisorChatRequest(BaseModel):
     """Request for a natural-language financial question."""
-    user_id: str = Field(..., example="USER_0001")
-    message: str = Field(..., example="Am I spending more this month than last?")
+
+    user_id: str = Field(..., examples=["USER_0001"])
+    message: str = Field(..., examples=["Am I spending more this month than last?"])
     session_id: Optional[str] = None
     approved: bool = Field(
         default=False,
@@ -127,6 +143,7 @@ class AdvisorChatRequest(BaseModel):
 
 class AdvisorChatResponse(BaseModel):
     """Response from the conversational financial advisor."""
+
     user_id: str
     message: str
     reply: str
@@ -142,8 +159,10 @@ class AdvisorChatResponse(BaseModel):
 # Feature 2: Spending DNA
 # ---------------------------------------------------------------------------
 
+
 class SpendingDNAResponse(BaseModel):
     """The 8-axis radar chart fingerprint for a user."""
+
     user_id: str
     radar_labels: List[str]
     radar_values: List[float]
@@ -158,7 +177,8 @@ class SpendingDNAResponse(BaseModel):
 
 class DNACompareRequest(BaseModel):
     """Request to compare a session against a user's DNA baseline."""
-    user_id: str = Field(..., example="USER_0001")
+
+    user_id: str = Field(..., examples=["USER_0001"])
     session_overrides: Optional[Dict[str, float]] = None
     session_id: Optional[str] = None
     approved: bool = Field(
@@ -169,6 +189,7 @@ class DNACompareRequest(BaseModel):
 
 class DNACompareResponse(BaseModel):
     """Comparison between the current session and the DNA baseline."""
+
     user_id: str
     baseline_radar: List[float]
     session_radar: List[float]
@@ -183,7 +204,8 @@ class DNACompareResponse(BaseModel):
 
 class DNAChallengeRequest(BaseModel):
     """HITL-gated Challenge Auth after a high DNA deviation."""
-    user_id: str = Field(..., example="USER_0001")
+
+    user_id: str = Field(..., examples=["USER_0001"])
     reason: str = Field(default="high_dna_deviation")
     approved: bool = Field(
         ...,
@@ -194,6 +216,7 @@ class DNAChallengeRequest(BaseModel):
 
 class DNAChallengeResponse(BaseModel):
     """Result of an approved Challenge Auth action."""
+
     user_id: str
     status: str
     challenge: Optional[Dict[str, Any]] = None
@@ -201,25 +224,26 @@ class DNAChallengeResponse(BaseModel):
     pending_approval: bool = False
 
 
-
 class AuthLoginRequest(BaseModel):
     """Login request for Streamlit /auth/login."""
-    username: str = Field(..., example="admin")
-    password: str = Field(..., example="admin123!")
+
+    username: str = Field(..., examples=["admin"])
+    password: str = Field(..., examples=["admin123!"])
 
 
 class AuthLoginResponse(BaseModel):
     """Login response including ADDF diversion info."""
+
     authenticated: bool
     session_id: Optional[str] = None
     diverted: bool = False
     message: str
 
 
-
 class SecurityChatRequest(BaseModel):
     """Request strictly for the Security Analyst."""
-    message: str = Field(..., example="Scan my account for fraud anomalies.")
+
+    message: str = Field(..., examples=["Scan my account for fraud anomalies."])
     session_id: Optional[str] = None
     approved: bool = Field(
         default=False,
@@ -229,6 +253,7 @@ class SecurityChatRequest(BaseModel):
 
 class SecurityChatResponse(BaseModel):
     """Response strictly from the Security Analyst."""
+
     reply: str
     actions: List[AgentActionStep]
     status: str
@@ -238,20 +263,24 @@ class SecurityChatResponse(BaseModel):
     step_count: Optional[int] = None
     pending_approval: Optional[Dict[str, Any]] = None
 
+
 # ---------------------------------------------------------------------------
 # Feature: PDF Knowledge Chat
 # ---------------------------------------------------------------------------
 
+
 class DocChatRequest(BaseModel):
     """Request for chatting with uploaded PDF/Image/CSV knowledge."""
-    message: str = Field(..., example="What does the document say about fraud?")
+
+    message: str = Field(..., examples=["What does the document say about fraud?"])
     session_id: Optional[str] = None
     images: Optional[List[str]] = None  # Base64 encoded images
     file_types: Optional[List[str]] = None  # e.g. ["pdf", "image", "csv"]
 
+
 class DocChatResponse(BaseModel):
     """Response from the document-aware chatbot."""
+
     reply: str
     sources: List[Dict[str, Any]]
     session_id: Optional[str] = None
-

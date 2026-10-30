@@ -6,11 +6,10 @@ Outputs features as CSV or loads into Snowflake TRANSACTION_FEATURES table.
 
 import argparse
 import csv
-import os
 import sys
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -21,8 +20,13 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 PIPELINE_LOG_PATH = PROJECT_ROOT / "logs" / "pipeline_logs.csv"
 
 PIPELINE_LOG_COLUMNS = [
-    "run_id", "timestamp", "stage", "status",
-    "records_processed", "duration_ms", "error_message",
+    "run_id",
+    "timestamp",
+    "stage",
+    "status",
+    "records_processed",
+    "duration_ms",
+    "error_message",
 ]
 
 # Category risk weights — mirrors sql/analytical_queries.sql query #8
@@ -45,28 +49,35 @@ def log_pipeline_event(stage, status, records=0, duration_ms=0.0, error_message=
         w = csv.DictWriter(f, fieldnames=PIPELINE_LOG_COLUMNS)
         if not exists:
             w.writeheader()
-        w.writerow({
-            "run_id": str(uuid.uuid4())[:8],
-            "timestamp": datetime.utcnow().isoformat(),
-            "stage": stage,
-            "status": status,
-            "records_processed": records,
-            "duration_ms": round(duration_ms, 2),
-            "error_message": error_message,
-        })
+        w.writerow(
+            {
+                "run_id": str(uuid.uuid4())[:8],
+                "timestamp": datetime.utcnow().isoformat(),
+                "stage": stage,
+                "status": status,
+                "records_processed": records,
+                "duration_ms": round(duration_ms, 2),
+                "error_message": error_message,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
 # Feature computation
 # ---------------------------------------------------------------------------
 
+
 def compute_user_stats(df: pd.DataFrame) -> pd.DataFrame:
     """Compute per-user aggregate statistics."""
-    stats = df.groupby("USER_ID")["AMOUNT"].agg(
-        USER_AVG_AMOUNT="mean",
-        USER_STD_AMOUNT="std",
-        USER_TOTAL_TRANSACTIONS="count",
-    ).reset_index()
+    stats = (
+        df.groupby("USER_ID")["AMOUNT"]
+        .agg(
+            USER_AVG_AMOUNT="mean",
+            USER_STD_AMOUNT="std",
+            USER_TOTAL_TRANSACTIONS="count",
+        )
+        .reset_index()
+    )
     stats["USER_STD_AMOUNT"] = stats["USER_STD_AMOUNT"].fillna(0)
     return stats
 
@@ -77,19 +88,16 @@ def compute_velocity_features(df: pd.DataFrame) -> pd.DataFrame:
     df["TRANSACTION_DATE"] = pd.to_datetime(df["TRANSACTION_DATE"])
 
     results = []
-    for user_id, group in df.groupby("USER_ID"):
+    for _user_id, group in df.groupby("USER_ID"):
         group = group.sort_values("TRANSACTION_DATE")
         dates = group["TRANSACTION_DATE"].values
 
         count_1h, count_24h, count_7d = [], [], []
         for i, dt in enumerate(dates):
             dt_ts = pd.Timestamp(dt)
-            c1 = ((dates[:i] >= (dt_ts - pd.Timedelta(hours=1)).to_numpy()) &
-                   (dates[:i] <= dt)).sum()
-            c24 = ((dates[:i] >= (dt_ts - pd.Timedelta(hours=24)).to_numpy()) &
-                    (dates[:i] <= dt)).sum()
-            c7 = ((dates[:i] >= (dt_ts - pd.Timedelta(days=7)).to_numpy()) &
-                   (dates[:i] <= dt)).sum()
+            c1 = ((dates[:i] >= (dt_ts - pd.Timedelta(hours=1)).to_numpy()) & (dates[:i] <= dt)).sum()
+            c24 = ((dates[:i] >= (dt_ts - pd.Timedelta(hours=24)).to_numpy()) & (dates[:i] <= dt)).sum()
+            c7 = ((dates[:i] >= (dt_ts - pd.Timedelta(days=7)).to_numpy()) & (dates[:i] <= dt)).sum()
             count_1h.append(int(c1))
             count_24h.append(int(c24))
             count_7d.append(int(c7))
@@ -157,12 +165,25 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Select output columns
     output_cols = [
-        "TRANSACTION_ID", "USER_ID", "AMOUNT", "AMOUNT_ZSCORE", "IS_HIGH_VALUE",
-        "USER_AVG_AMOUNT", "USER_STD_AMOUNT", "USER_TOTAL_TRANSACTIONS",
-        "TXN_COUNT_1H", "TXN_COUNT_24H", "TXN_COUNT_7D",
-        "CATEGORY", "CATEGORY_RISK_WEIGHT",
-        "HOUR_OF_DAY", "DAY_OF_WEEK", "IS_WEEKEND",
-        "LOCATION", "IS_NEW_LOCATION", "LOCATION_ENTROPY",
+        "TRANSACTION_ID",
+        "USER_ID",
+        "AMOUNT",
+        "AMOUNT_ZSCORE",
+        "IS_HIGH_VALUE",
+        "USER_AVG_AMOUNT",
+        "USER_STD_AMOUNT",
+        "USER_TOTAL_TRANSACTIONS",
+        "TXN_COUNT_1H",
+        "TXN_COUNT_24H",
+        "TXN_COUNT_7D",
+        "CATEGORY",
+        "CATEGORY_RISK_WEIGHT",
+        "HOUR_OF_DAY",
+        "DAY_OF_WEEK",
+        "IS_WEEKEND",
+        "LOCATION",
+        "IS_NEW_LOCATION",
+        "LOCATION_ENTROPY",
         "COMPUTED_AT",
     ]
     # Add optional Kaggle-specific columns if present
@@ -176,15 +197,19 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(description="Feature Engineering Pipeline")
     parser.add_argument(
-        "--input", type=str,
+        "--input",
+        type=str,
         default=str(PROJECT_ROOT / "data" / "csv_data" / "transactions_kaggle.csv"),
         help="Path to raw transactions CSV (default: transactions_kaggle.csv)",
     )
     parser.add_argument(
-        "--output-csv", type=str, default=None,
+        "--output-csv",
+        type=str,
+        default=None,
         help="Output features to CSV file (default: features_output.csv)",
     )
     args = parser.parse_args()

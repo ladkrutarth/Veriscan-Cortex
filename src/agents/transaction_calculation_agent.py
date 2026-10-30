@@ -4,12 +4,12 @@ Totals, averages, growth rates, category breakdowns, forecasts, comparisons.
 Returns structured result dicts (numbers, breakdowns, time series).
 """
 
-from pathlib import Path
 from typing import Any, Optional
-from datetime import datetime, timedelta
+
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from paths import PROJECT_ROOT
+
 ADVISOR_DATA_PATH = PROJECT_ROOT / "data" / "csv_data" / "financial_advisor_dataset.csv"
 
 
@@ -41,13 +41,7 @@ class TransactionCalculationAgent:
         if end_date:
             user_df = user_df[user_df["transaction_date"] <= pd.to_datetime(end_date)]
         total = float(user_df["amount"].sum())
-        by_cat = (
-            user_df.groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-            .round(2)
-            .to_dict()
-        )
+        by_cat = user_df.groupby("category")["amount"].sum().sort_values(ascending=False).round(2).to_dict()
         return {
             "agent": "calculation",
             "tool": "total_in_range",
@@ -101,7 +95,11 @@ class TransactionCalculationAgent:
         user_df = self._user_df(user_id)
         if user_df.empty:
             return {"agent": "calculation", "error": f"No data for {user_id}"}
-        subs = user_df[user_df["is_subscription"] == True] if "is_subscription" in user_df.columns else pd.DataFrame()
+        subs = (
+            user_df[user_df["is_subscription"] == True]
+            if "is_subscription" in user_df.columns
+            else pd.DataFrame()
+        )
         sub_total = float(subs.groupby("merchant")["amount"].mean().sum()) if not subs.empty else 0.0
         by_month = user_df.groupby("month_key")["amount"].sum()
         avg_total = float(by_month.mean())
@@ -120,10 +118,20 @@ class TransactionCalculationAgent:
         if user_df.empty:
             return {"agent": "calculation", "error": f"No data for {user_id}"}
         if "is_subscription" not in user_df.columns:
-            return {"agent": "calculation", "tool": "subscription_totals", "by_merchant": {}, "monthly_total": 0}
+            return {
+                "agent": "calculation",
+                "tool": "subscription_totals",
+                "by_merchant": {},
+                "monthly_total": 0,
+            }
         subs = user_df[user_df["is_subscription"] == True]
         if subs.empty:
-            return {"agent": "calculation", "tool": "subscription_totals", "by_merchant": {}, "monthly_total": 0}
+            return {
+                "agent": "calculation",
+                "tool": "subscription_totals",
+                "by_merchant": {},
+                "monthly_total": 0,
+            }
         by_merchant = subs.groupby("merchant")["amount"].mean().round(2).to_dict()
         monthly_total = round(sum(by_merchant.values()), 2)
         return {

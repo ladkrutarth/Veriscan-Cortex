@@ -4,6 +4,7 @@ Veriscan — Financial Advisor trajectory / tool-routing evaluation.
 Runs without MLX by default (keyword router + tool registry).
 Golden set checks that expected tools appear in tool_results / tools_used.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,8 +22,7 @@ os.environ.setdefault("ENABLE_MULTI_AGENT_ADVISOR", "0")
 
 from agents.financial_advisor_agent import FinancialAdvisorAgent
 from agents.react_loop import extract_json
-from agents.tool_registry import ToolRegistry, REQUIRE_HITL
-
+from agents.tool_registry import REQUIRE_HITL, ToolRegistry
 
 GOLDEN = [
     {
@@ -122,7 +122,7 @@ def evaluate_advisor(user_id: str | None = None) -> float:
     assert len(reg) >= 10, "Expected advisor tools registered"
     assert "challenge_auth" in REQUIRE_HITL
     assert extract_json('{"action":"final","answer":"ok"}')["action"] == "final"
-    assert extract_json("Here is JSON:\n```json\n{\"action\":\"tool\",\"tool\":\"x\",\"args\":{}}\n```")["tool"] == "x"
+    assert extract_json('Here is JSON:\n```json\n{"action":"tool","tool":"x","args":{}}\n```')["tool"] == "x"
 
     # HITL block smoke
     hitl_reg = ToolRegistry()
@@ -138,9 +138,9 @@ def evaluate_advisor(user_id: str | None = None) -> float:
     assert allowed.get("ok") is True
 
     success = 0
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f" Advisor Trajectory Eval — {len(GOLDEN)} Golden Queries")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     for i, case in enumerate(GOLDEN, 1):
         q = case["query"]
@@ -149,10 +149,7 @@ def evaluate_advisor(user_id: str | None = None) -> float:
         result = agent.chat(q, uid)
         got = _tools_from_result(result)
         require_all = not case.get("any_of", False)
-        if require_all:
-            ok = all(t in got for t in expected)
-        else:
-            ok = any(t in got for t in expected)
+        ok = all(t in got for t in expected) if require_all else any(t in got for t in expected)
 
         status = "✅" if ok else "❌"
         print(f"[{i}/{len(GOLDEN)}] {status} {q[:60]}")
@@ -162,9 +159,9 @@ def evaluate_advisor(user_id: str | None = None) -> float:
             success += 1
 
     accuracy = success / len(GOLDEN)
-    print(f"\n{'='*60}")
-    print(f" Accuracy: {success}/{len(GOLDEN)} = {accuracy*100:.0f}%")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print(f" Accuracy: {success}/{len(GOLDEN)} = {accuracy * 100:.0f}%")
+    print(f"{'=' * 60}")
     return accuracy
 
 

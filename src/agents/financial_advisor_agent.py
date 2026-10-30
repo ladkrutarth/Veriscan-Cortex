@@ -5,18 +5,17 @@ Supports: fraud detection, category advice, savings plan, spending chart, suspic
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
 import os
 import re
+from typing import Any
+
 import pandas as pd
-import numpy as np
-import random
+
 from agents.memory import get_memory
 from models.agent_tools_data import GLOBAL_SCAM_STATS
+from paths import PROJECT_ROOT
 
-PROJECT_ROOT       = Path(__file__).resolve().parents[2]
-ADVISOR_DATA_PATH  = PROJECT_ROOT / "data" / "csv_data" / "financial_advisor_dataset.csv"
+ADVISOR_DATA_PATH = PROJECT_ROOT / "data" / "csv_data" / "financial_advisor_dataset.csv"
 
 # Category advice knowledge-base
 CATEGORY_ADVICE: dict[str, dict] = {
@@ -110,7 +109,7 @@ CATEGORY_ADVICE: dict[str, dict] = {
 
 # Fraud signal categories that are inherently suspicious
 HIGH_RISK_CATEGORIES = {"gambling", "alcohol", "adult_entertainment", "wire_transfer", "crypto"}
-SUSPICIOUS_MERCHANTS  = {"cash advance", "western union", "wire", "pawn", "payday loan"}
+SUSPICIOUS_MERCHANTS = {"cash advance", "western union", "wire", "pawn", "payday loan"}
 
 
 class FinancialAdvisorAgent:
@@ -165,13 +164,17 @@ class FinancialAdvisorAgent:
             "show_chart": True,
         }
 
-    def tool_find_cancellable_subscriptions(self, user_id: str, target_savings: float = 100.0) -> dict[str, Any]:
+    def tool_find_cancellable_subscriptions(
+        self, user_id: str, target_savings: float = 100.0
+    ) -> dict[str, Any]:
         """Find subscriptions to cancel to reach a savings target."""
-        subs = self.df[
-            (self.df["user_id"] == user_id) & (self.df["is_subscription"] == True)
-        ].copy()
+        subs = self.df[(self.df["user_id"] == user_id) & (self.df["is_subscription"] == True)].copy()
         if subs.empty:
-            return {"tool": "find_cancellable_subscriptions", "message": "No subscriptions found.", "items": []}
+            return {
+                "tool": "find_cancellable_subscriptions",
+                "message": "No subscriptions found.",
+                "items": [],
+            }
 
         by_merchant = (
             subs.groupby("merchant")["amount"]
@@ -185,11 +188,13 @@ class FinancialAdvisorAgent:
         for _, row in by_merchant.iterrows():
             if running_total >= target_savings:
                 break
-            selected.append({
-                "merchant": row["merchant"],
-                "monthly_cost": round(row["avg"], 2),
-                "annual_cost": round(row["avg"] * 12, 2),
-            })
+            selected.append(
+                {
+                    "merchant": row["merchant"],
+                    "monthly_cost": round(row["avg"], 2),
+                    "annual_cost": round(row["avg"] * 12, 2),
+                }
+            )
             running_total += row["avg"]
 
         return {
@@ -214,13 +219,13 @@ class FinancialAdvisorAgent:
         avg_monthly_spend = user_df.groupby("month_key")["amount"].sum().mean()
         base_credit_limit = max(5000.0, avg_monthly_spend * 3)
         utilization = avg_monthly_spend / base_credit_limit
-        
+
         # Credit Score calculation
         base = 680
         score_adj = round((pos_ratio * 40) - (neg_ratio * 60))
         if utilization > 0.3:
             score_adj -= round((utilization - 0.3) * 100)
-        
+
         estimated_score = base + score_adj
 
         result: dict[str, Any] = {
@@ -229,13 +234,13 @@ class FinancialAdvisorAgent:
             "estimated_credit_score": min(850, max(580, estimated_score)),
             "credit_limit": round(base_credit_limit, 2),
             "utilization_pct": round(utilization * 100, 1),
-            "monthly_spend": round(avg_monthly_spend, 2)
+            "monthly_spend": round(avg_monthly_spend, 2),
         }
 
         # Analyze where to purchase and how much
         high_risk_cats = user_df[user_df["credit_score_impact_category"] == "negative"]["category"].unique()
         good_cats = user_df[user_df["credit_score_impact_category"] == "positive"]["category"].unique()
-        
+
         # Calculate additional metrics for detailed analysis
         num_months = max(len(user_df["month_key"].unique()), 1)
         total_txns = len(user_df)
@@ -243,10 +248,12 @@ class FinancialAdvisorAgent:
         pos_count = impact_counts.get("positive", 0)
         neg_count = impact_counts.get("negative", 0)
         neutral_count = impact_counts.get("neutral", 0)
-        
+
         good_cats_str = ", ".join(good_cats[:3]) if len(good_cats) > 0 else "Groceries, Utilities"
-        risk_cats_str = ", ".join(high_risk_cats[:3]) if len(high_risk_cats) > 0 else "Gambling, Cash advances"
-        
+        risk_cats_str = (
+            ", ".join(high_risk_cats[:3]) if len(high_risk_cats) > 0 else "Gambling, Cash advances"
+        )
+
         # Utilization advice
         if utilization <= 0.1:
             util_advice = "This is excellent and well below the recommended 30% threshold. Maintaining low utilization is one of the strongest contributors to a high credit score."
@@ -254,7 +261,7 @@ class FinancialAdvisorAgent:
             util_advice = "This is within the healthy range. Aim to keep it below 30% consistently. Lenders view low utilization as a sign of responsible credit management."
         else:
             util_advice = f"This exceeds the recommended 30% threshold. Reducing your monthly spend by ${(avg_monthly_spend - base_credit_limit * 0.3):,.0f} would bring you into the optimal range and could boost your score by 20-40 points."
-        
+
         result["recommendation"] = (
             "**Credit Building Strategy:**\n\n"
             f"**📊 Utilization Analysis**\n"
@@ -281,13 +288,7 @@ class FinancialAdvisorAgent:
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
 
-        by_cat = (
-            user_df.groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-            .head(8)
-            .to_dict()
-        )
+        by_cat = user_df.groupby("category")["amount"].sum().sort_values(ascending=False).head(8).to_dict()
         top_merchant = user_df.groupby("merchant")["amount"].sum().idxmax()
         total = round(user_df["amount"].sum(), 2)
         avg_monthly = round(user_df.groupby("month_key")["amount"].sum().mean(), 2)
@@ -313,13 +314,32 @@ class FinancialAdvisorAgent:
 
         # Map keyword synonyms to our advice keys
         synonym_map = {
-            "coffee shop": "coffee", "café": "coffee", "cafe": "coffee", "starbucks": "coffee",
-            "food": "dining", "restaurant": "dining", "eat": "dining", "takeout": "dining",
-            "bar": "club", "nightclub": "club", "party": "club", "entertainment": "club",
-            "casino": "gambling", "bet": "gambling", "lottery": "gambling", "poker": "gambling",
-            "shop": "shopping", "retail": "shopping", "amazon": "shopping",
-            "petrol": "gas", "fuel": "gas", "uber": "gas", "transport": "gas",
-            "subscription": "subscriptions", "netflix": "subscriptions", "spotify": "subscriptions",
+            "coffee shop": "coffee",
+            "café": "coffee",
+            "cafe": "coffee",
+            "starbucks": "coffee",
+            "food": "dining",
+            "restaurant": "dining",
+            "eat": "dining",
+            "takeout": "dining",
+            "bar": "club",
+            "nightclub": "club",
+            "party": "club",
+            "entertainment": "club",
+            "casino": "gambling",
+            "bet": "gambling",
+            "lottery": "gambling",
+            "poker": "gambling",
+            "shop": "shopping",
+            "retail": "shopping",
+            "amazon": "shopping",
+            "petrol": "gas",
+            "fuel": "gas",
+            "uber": "gas",
+            "transport": "gas",
+            "subscription": "subscriptions",
+            "netflix": "subscriptions",
+            "spotify": "subscriptions",
         }
         resolved = key
         for syn, mapped in synonym_map.items():
@@ -327,7 +347,7 @@ class FinancialAdvisorAgent:
                 resolved = mapped
                 break
 
-        advice = CATEGORY_ADVICE.get(resolved, None)
+        advice = CATEGORY_ADVICE.get(resolved)
 
         # Actual user spend in this category (fuzzy match)
         user_spend_this_cat = 0.0
@@ -340,7 +360,9 @@ class FinancialAdvisorAgent:
             "category": resolved,
             "label": advice["label"] if advice else f"📂 {resolved.title()}",
             "user_spend": user_spend_this_cat,
-            "tips": advice["tips"] if advice else ["Track this category for 30 days to identify saving opportunities."],
+            "tips": advice["tips"]
+            if advice
+            else ["Track this category for 30 days to identify saving opportunities."],
             "annual_waste_estimate": advice.get("annual_waste_estimate", "N/A") if advice else "N/A",
             "risk_level": advice.get("risk", "medium") if advice else "medium",
             "warning": advice.get("warning", "") if advice else "",
@@ -356,16 +378,11 @@ class FinancialAdvisorAgent:
 
         monthly_avg = round(user_df.groupby("month_key")["amount"].sum().mean(), 2)
 
-        by_cat = (
-            user_df.groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-            .to_dict()
-        )
+        by_cat = user_df.groupby("category")["amount"].sum().sort_values(ascending=False).to_dict()
 
         savings_opportunities = []
         total_potential_savings = 0.0
-        
+
         # Analyze ALL categories
         for cat, total in by_cat.items():
             monthly = round(total / max(len(user_df["month_key"].unique()), 1), 2)
@@ -404,16 +421,18 @@ class FinancialAdvisorAgent:
                 reduction = round(monthly * 0.05, 2)
                 tip = "Ask for generic prescriptions"
             else:
-                reduction = round(monthly * 0.10, 2) # General 10% cut
+                reduction = round(monthly * 0.10, 2)  # General 10% cut
                 tip = f"Review {cat} spend for strict 10% reduction"
 
             if reduction > 0:
-                savings_opportunities.append({
-                    "category": cat,
-                    "monthly_spend": monthly,
-                    "potential_saving": reduction,
-                    "tip": tip,
-                })
+                savings_opportunities.append(
+                    {
+                        "category": cat,
+                        "monthly_spend": monthly,
+                        "potential_saving": reduction,
+                        "tip": tip,
+                    }
+                )
                 total_potential_savings += reduction
 
         return {
@@ -445,7 +464,11 @@ class FinancialAdvisorAgent:
             amt = float(row.get("amount", 0))
             risk = float(row.get("risk_score", 0))
             fraud_flag = bool(row.get("is_fraud_flag", False))
-            hour = int(pd.to_datetime(row["transaction_date"]).hour) if pd.notna(row.get("transaction_date")) else 12
+            hour = (
+                int(pd.to_datetime(row["transaction_date"]).hour)
+                if pd.notna(row.get("transaction_date"))
+                else 12
+            )
 
             if fraud_flag or risk > 0.75:
                 flags.append(f"🚨 High fraud score ({risk:.2f}) detected by ML model")
@@ -459,15 +482,19 @@ class FinancialAdvisorAgent:
                 flags.append(f"💰 Large transaction (${amt:.2f}) with elevated risk")
 
             if flags:
-                alerts.append({
-                    "transaction_date": str(row["transaction_date"])[:10],
-                    "merchant": row.get("merchant", "Unknown"),
-                    "category": row.get("category", "Unknown"),
-                    "amount": round(amt, 2),
-                    "risk_score": round(risk, 3),
-                    "flags": flags,
-                    "severity": "CRITICAL" if (fraud_flag or risk > 0.85) else ("HIGH" if risk > 0.65 else "MEDIUM"),
-                })
+                alerts.append(
+                    {
+                        "transaction_date": str(row["transaction_date"])[:10],
+                        "merchant": row.get("merchant", "Unknown"),
+                        "category": row.get("category", "Unknown"),
+                        "amount": round(amt, 2),
+                        "risk_score": round(risk, 3),
+                        "flags": flags,
+                        "severity": "CRITICAL"
+                        if (fraud_flag or risk > 0.85)
+                        else ("HIGH" if risk > 0.65 else "MEDIUM"),
+                    }
+                )
 
         avg_risk = round(float(recent["risk_score"].mean()), 3) if "risk_score" in recent.columns else 0.0
 
@@ -478,9 +505,13 @@ class FinancialAdvisorAgent:
             "alerts_found": len(alerts),
             "avg_risk_score": avg_risk,
             "overall_status": (
-                "🚨 CRITICAL — Immediate action required!" if any(a["severity"] == "CRITICAL" for a in alerts)
-                else ("⚠️ WARNING — Suspicious activity detected" if alerts
-                else "✅ CLEAR — No suspicious activity detected")
+                "🚨 CRITICAL — Immediate action required!"
+                if any(a["severity"] == "CRITICAL" for a in alerts)
+                else (
+                    "⚠️ WARNING — Suspicious activity detected"
+                    if alerts
+                    else "✅ CLEAR — No suspicious activity detected"
+                )
             ),
             "alerts": alerts,
         }
@@ -497,40 +528,50 @@ class FinancialAdvisorAgent:
         recent = user_df.sort_values("transaction_date", ascending=False).head(30)
 
         # 1. Velocity spike
-        velocity_7d = float(recent["spending_velocity_7d"].mean()) if "spending_velocity_7d" in recent.columns else 0
-        velocity_baseline = float(user_df["spending_velocity_7d"].mean()) if "spending_velocity_7d" in user_df.columns else 0
+        velocity_7d = (
+            float(recent["spending_velocity_7d"].mean()) if "spending_velocity_7d" in recent.columns else 0
+        )
+        velocity_baseline = (
+            float(user_df["spending_velocity_7d"].mean()) if "spending_velocity_7d" in user_df.columns else 0
+        )
         if velocity_baseline > 0 and velocity_7d > velocity_baseline * 1.8:
-            alerts.append({
-                "type": "velocity_spike",
-                "emoji": "⚡",
-                "title": "Spending Velocity Spike",
-                "detail": f"7-day spend velocity is {velocity_7d:.0f} — {(velocity_7d/velocity_baseline - 1)*100:.0f}% above your norm.",
-                "severity": "HIGH",
-            })
+            alerts.append(
+                {
+                    "type": "velocity_spike",
+                    "emoji": "⚡",
+                    "title": "Spending Velocity Spike",
+                    "detail": f"7-day spend velocity is {velocity_7d:.0f} — {(velocity_7d / velocity_baseline - 1) * 100:.0f}% above your norm.",
+                    "severity": "HIGH",
+                }
+            )
 
         # 2. High-risk category surge
         if "category" in recent.columns:
             risky_txns = recent[recent["category"].str.lower().isin(HIGH_RISK_CATEGORIES)]
             if len(risky_txns) >= 3:
-                alerts.append({
-                    "type": "risky_category",
-                    "emoji": "🎲",
-                    "title": f"Risky Category Activity",
-                    "detail": f"{len(risky_txns)} transactions in high-risk categories (gambling/cash/wire) in last 30 txns.",
-                    "severity": "HIGH",
-                })
+                alerts.append(
+                    {
+                        "type": "risky_category",
+                        "emoji": "🎲",
+                        "title": "Risky Category Activity",
+                        "detail": f"{len(risky_txns)} transactions in high-risk categories (gambling/cash/wire) in last 30 txns.",
+                        "severity": "HIGH",
+                    }
+                )
 
         # 3. High fraud-flag rate
         if "is_fraud_flag" in recent.columns:
             flag_rate = recent["is_fraud_flag"].mean()
             if flag_rate > 0.15:
-                alerts.append({
-                    "type": "fraud_flags",
-                    "emoji": "🚩",
-                    "title": "Multiple Fraud Flags",
-                    "detail": f"{flag_rate:.0%} of your recent transactions triggered the fraud model.",
-                    "severity": "CRITICAL",
-                })
+                alerts.append(
+                    {
+                        "type": "fraud_flags",
+                        "emoji": "🚩",
+                        "title": "Multiple Fraud Flags",
+                        "detail": f"{flag_rate:.0%} of your recent transactions triggered the fraud model.",
+                        "severity": "CRITICAL",
+                    }
+                )
 
         # 4. Unusual hour activity
         if "transaction_date" in recent.columns:
@@ -538,28 +579,33 @@ class FinancialAdvisorAgent:
             recent["hour"] = pd.to_datetime(recent["transaction_date"]).dt.hour
             late_night = recent[(recent["hour"] >= 0) & (recent["hour"] <= 4)]
             if len(late_night) >= 3:
-                alerts.append({
-                    "type": "late_night",
-                    "emoji": "🌙",
-                    "title": "Late-Night Transaction Cluster",
-                    "detail": f"{len(late_night)} transactions between midnight–4am in recent activity.",
-                    "severity": "MEDIUM",
-                })
+                alerts.append(
+                    {
+                        "type": "late_night",
+                        "emoji": "🌙",
+                        "title": "Late-Night Transaction Cluster",
+                        "detail": f"{len(late_night)} transactions between midnight–4am in recent activity.",
+                        "severity": "MEDIUM",
+                    }
+                )
 
         # 5. Large one-off transactions
         amt_mean = float(recent["amount"].mean())
         large_txns = recent[recent["amount"] > amt_mean * 3]
         if len(large_txns) >= 2:
-            alerts.append({
-                "type": "large_txn",
-                "emoji": "💸",
-                "title": "Unusually Large Transactions",
-                "detail": f"{len(large_txns)} transactions 3× above your average (avg: ${amt_mean:.2f}).",
-                "severity": "MEDIUM",
-            })
+            alerts.append(
+                {
+                    "type": "large_txn",
+                    "emoji": "💸",
+                    "title": "Unusually Large Transactions",
+                    "detail": f"{len(large_txns)} transactions 3× above your average (avg: ${amt_mean:.2f}).",
+                    "severity": "MEDIUM",
+                }
+            )
 
         overall = (
-            "🚨 CRITICAL" if any(a["severity"] == "CRITICAL" for a in alerts)
+            "🚨 CRITICAL"
+            if any(a["severity"] == "CRITICAL" for a in alerts)
             else ("⚠️ WARNING" if alerts else "✅ ALL CLEAR")
         )
 
@@ -578,20 +624,22 @@ class FinancialAdvisorAgent:
         user_df = self.df[self.df["user_id"] == user_id]
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
-        
+
         subs = user_df[user_df["is_subscription"] == True]
         avg_monthly_subs = float(subs.groupby("merchant")["amount"].mean().sum()) if not subs.empty else 0.0
-        
+
         non_subs = user_df[user_df["is_subscription"] == False]
-        avg_monthly_non_subs = float(non_subs.groupby("month_key")["amount"].sum().mean()) if not non_subs.empty else 0.0
-        
+        avg_monthly_non_subs = (
+            float(non_subs.groupby("month_key")["amount"].sum().mean()) if not non_subs.empty else 0.0
+        )
+
         forecast = avg_monthly_subs + avg_monthly_non_subs
-        
+
         return {
             "tool": "cash_flow_forecast",
             "forecast_amount": round(forecast, 2),
             "subs_amount": round(avg_monthly_subs, 2),
-            "variable_amount": round(avg_monthly_non_subs, 2)
+            "variable_amount": round(avg_monthly_non_subs, 2),
         }
 
     def tool_detect_price_hikes(self, user_id: str) -> dict[str, Any]:
@@ -603,37 +651,44 @@ class FinancialAdvisorAgent:
                 group = group.sort_values("transaction_date")
                 if len(group) >= 2:
                     last_two = group["amount"].tail(2).values
-                    if last_two[1] > last_two[0] * 1.05: # 5% hike
-                        alerts.append({
-                            "merchant": merchant,
-                            "old_price": round(last_two[0], 2),
-                            "new_price": round(last_two[1], 2),
-                            "increase_pct": round((last_two[1] / last_two[0] - 1) * 100, 1)
-                        })
-        return {
-            "tool": "detect_price_hikes",
-            "alerts": alerts
-        }
-
+                    if last_two[1] > last_two[0] * 1.05:  # 5% hike
+                        alerts.append(
+                            {
+                                "merchant": merchant,
+                                "old_price": round(last_two[0], 2),
+                                "new_price": round(last_two[1], 2),
+                                "increase_pct": round((last_two[1] / last_two[0] - 1) * 100, 1),
+                            }
+                        )
+        return {"tool": "detect_price_hikes", "alerts": alerts}
 
     def tool_tax_deductible_finder(self, user_id: str) -> dict[str, Any]:
         """Flags potential tax-deductible expenses like Healthcare, Charity, or Business travel."""
         user_df = self.df[self.df["user_id"] == user_id]
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
-            
-        tax_cats = ["healthcare", "medical", "pharmacy", "charity", "donation", "travel", "office", "education"]
+
+        tax_cats = [
+            "healthcare",
+            "medical",
+            "pharmacy",
+            "charity",
+            "donation",
+            "travel",
+            "office",
+            "education",
+        ]
         mask = user_df["category"].str.lower().apply(lambda x: any(tc in x for tc in tax_cats))
-        
+
         tax_df = user_df[mask]
         total_potential = float(tax_df["amount"].sum())
-        
+
         breakdown = tax_df.groupby("category")["amount"].sum().to_dict()
-        
+
         return {
             "tool": "tax_deductible_finder",
             "total_potential_deduction": round(total_potential, 2),
-            "breakdown": {k: round(v, 2) for k, v in breakdown.items() if v > 0}
+            "breakdown": {k: round(v, 2) for k, v in breakdown.items() if v > 0},
         }
 
     def tool_surplus_optimizer(self, user_id: str) -> dict[str, Any]:
@@ -641,11 +696,11 @@ class FinancialAdvisorAgent:
         user_df = self.df[self.df["user_id"] == user_id]
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
-            
+
         avg_monthly_spend = float(user_df.groupby("month_key")["amount"].sum().mean())
-        assumed_income = max(5000.0, avg_monthly_spend * 1.5) # Fake income simulation
+        assumed_income = max(5000.0, avg_monthly_spend * 1.5)  # Fake income simulation
         surplus = assumed_income - avg_monthly_spend
-        
+
         return {
             "tool": "surplus_optimizer",
             "assumed_monthly_income": round(assumed_income, 2),
@@ -654,8 +709,10 @@ class FinancialAdvisorAgent:
             "suggestions": [
                 f"Invest ${round(surplus * 0.5, 2)} into an Index Fund.",
                 f"Allocate ${round(surplus * 0.3, 2)} to a High-Yield Savings.",
-                f"Keep ${round(surplus * 0.2, 2)} as liquid fun money."
-            ] if surplus > 0 else ["Reduce spending to create a surplus."]
+                f"Keep ${round(surplus * 0.2, 2)} as liquid fun money.",
+            ]
+            if surplus > 0
+            else ["Reduce spending to create a surplus."],
         }
 
     def tool_liquidity_guard(self, user_id: str) -> dict[str, Any]:
@@ -663,21 +720,23 @@ class FinancialAdvisorAgent:
         user_df = self.df[(self.df["user_id"] == user_id) & (self.df["is_subscription"] == True)]
         if user_df.empty:
             return {"error": f"No data for {user_id}"}
-            
-        avg_monthly_spend = float(self.df[self.df["user_id"] == user_id].groupby("month_key")["amount"].sum().mean())
-        assumed_balance = avg_monthly_spend * 0.5 # Fake balance
-        
+
+        avg_monthly_spend = float(
+            self.df[self.df["user_id"] == user_id].groupby("month_key")["amount"].sum().mean()
+        )
+        assumed_balance = avg_monthly_spend * 0.5  # Fake balance
+
         # upcoming bills in next 7 days (mocked as total sub spend / 4)
         total_sub_spend = float(user_df.groupby("merchant")["amount"].mean().sum())
         upcoming_bills = total_sub_spend / 4
-        
+
         risk = "HIGH" if upcoming_bills > assumed_balance * 0.8 else "LOW"
-        
+
         return {
             "tool": "liquidity_guard",
             "assumed_balance": round(assumed_balance, 2),
             "upcoming_7d_bills": round(upcoming_bills, 2),
-            "liquidity_risk": risk
+            "liquidity_risk": risk,
         }
 
     def tool_market_fraud_insights(self) -> dict[str, Any]:
@@ -691,44 +750,60 @@ class FinancialAdvisorAgent:
             risk_path = PROJECT_ROOT / "data" / "csv_data" / "fraud_scores_output.csv"
             if not risk_path.exists():
                 return {"error": "Risk dataset not found"}
-            
+
             risk_df = pd.read_csv(risk_path)
             risk_df.columns = [c.upper() for c in risk_df.columns]
-            
+
             # 2. Dataset-specific Category Fraud Rates (Local Heatmap)
             # We look for HIGH risk transactions per category
-            cat_stats = risk_df.groupby('CATEGORY').agg(
-                total_txns=('COMBINED_RISK_SCORE', 'count'),
-                high_risk_cases=('RISK_LEVEL', lambda x: (x == 'HIGH').sum())
-            ).reset_index()
-            cat_stats['risk_density'] = (cat_stats['high_risk_cases'] / cat_stats['total_txns']) * 100
-            
-            heatmap_data = cat_stats.sort_values(by='risk_density', ascending=False).to_dict('records')
-            
+            cat_stats = (
+                risk_df.groupby("CATEGORY")
+                .agg(
+                    total_txns=("COMBINED_RISK_SCORE", "count"),
+                    high_risk_cases=("RISK_LEVEL", lambda x: (x == "HIGH").sum()),
+                )
+                .reset_index()
+            )
+            cat_stats["risk_density"] = (cat_stats["high_risk_cases"] / cat_stats["total_txns"]) * 100
+
+            heatmap_data = cat_stats.sort_values(by="risk_density", ascending=False).to_dict("records")
+
             # 3. Global Scam Stats (from central model)
             return {
                 "tool": "market_fraud_insights",
                 "global_scam_trends": GLOBAL_SCAM_STATS,
                 "local_cat_fraud_heatmap": [
                     {
-                        "category": r['CATEGORY'],
-                        "risk_density_pct": round(r['risk_density'], 2),
-                        "high_risk_cases": int(r['high_risk_cases'])
-                    } for r in heatmap_data[:10]
+                        "category": r["CATEGORY"],
+                        "risk_density_pct": round(r["risk_density"], 2),
+                        "high_risk_cases": int(r["high_risk_cases"]),
+                    }
+                    for r in heatmap_data[:10]
                 ],
-                "summary": "Investment and BEC scams lead global losses ($65B+), while local data shows highest risk density in " + 
-                           f"{heatmap_data[0]['CATEGORY'] if not cat_stats.empty else 'shopping_net'}."
+                "summary": "Investment and BEC scams lead global losses ($65B+), while local data shows highest risk density in "
+                + f"{heatmap_data[0]['CATEGORY'] if not cat_stats.empty else 'shopping_net'}.",
             }
         except Exception as e:
             return {"error": str(e)}
 
-
     # ── CHAT ROUTER ────────────────────────────────────────────────────────
 
     _CHART_KEYWORDS = [
-        "chart", "graph", "show me", "visuali", "bar", "plot",
-        "category", "categories", "breakdown", "spending", "how much",
-        "summary", "overview", "what am i", "total",
+        "chart",
+        "graph",
+        "show me",
+        "visuali",
+        "bar",
+        "plot",
+        "category",
+        "categories",
+        "breakdown",
+        "spending",
+        "how much",
+        "summary",
+        "overview",
+        "what am i",
+        "total",
     ]
 
     def _multi_agent_enabled(self) -> bool:
@@ -789,9 +864,7 @@ class FinancialAdvisorAgent:
         reg.register(
             "category_advice",
             "Personalized tips for a spending category (coffee, dining, gambling, etc.).",
-            lambda category_keyword="dining": self.tool_category_advice(
-                user_id, str(category_keyword)
-            ),
+            lambda category_keyword="dining": self.tool_category_advice(user_id, str(category_keyword)),
             {
                 "type": "object",
                 "properties": {
@@ -884,19 +957,46 @@ class FinancialAdvisorAgent:
 
     def _infer_intent(self, message: str) -> str:
         msg = message.lower()
-        if any(k in msg for k in [
-            "fraud", "suspicious", "hacked", "stolen", "scam", "alert",
-            "phish", "unauthorized", "risk score", "monitor activity",
-        ]):
+        if any(
+            k in msg
+            for k in [
+                "fraud",
+                "suspicious",
+                "hacked",
+                "stolen",
+                "scam",
+                "alert",
+                "phish",
+                "unauthorized",
+                "risk score",
+                "monitor activity",
+            ]
+        ):
             return "fraud"
-        if any(k in msg for k in [
-            "credit score", "fico", "credit impact", "credit risk",
-        ]):
+        if any(
+            k in msg
+            for k in [
+                "credit score",
+                "fico",
+                "credit impact",
+                "credit risk",
+            ]
+        ):
             return "credit"
-        if any(k in msg for k in [
-            "save money", "savings", "how to save", "cut back", "reduce spending",
-            "budget", "cancel subscription", "cancellable", "frugal",
-        ]):
+        if any(
+            k in msg
+            for k in [
+                "save money",
+                "savings",
+                "how to save",
+                "cut back",
+                "reduce spending",
+                "budget",
+                "cancel subscription",
+                "cancellable",
+                "frugal",
+            ]
+        ):
             return "savings"
         if any(k in msg for k in ["forecast", "cash flow", "next month", "project spend"]):
             return "forecast"
@@ -905,9 +1005,24 @@ class FinancialAdvisorAgent:
         if any(k in msg for k in ["liquidity", "liquid", "upcoming bills", "runway", "cash cushion"]):
             return "liquidity"
         category_tokens = [
-            "coffee", "café", "cafe", "dining", "restaurant", "club", "bar",
-            "gambl", "casino", "shopping", "amazon", "gas", "fuel", "uber",
-            "netflix", "spotify", "subscription tip", "eat out",
+            "coffee",
+            "café",
+            "cafe",
+            "dining",
+            "restaurant",
+            "club",
+            "bar",
+            "gambl",
+            "casino",
+            "shopping",
+            "amazon",
+            "gas",
+            "fuel",
+            "uber",
+            "netflix",
+            "spotify",
+            "subscription tip",
+            "eat out",
         ]
         if any(t in msg for t in category_tokens) and any(
             k in msg for k in ["tip", "advice", "cut", "reduce", "spend less", "too much", "habit"]
@@ -940,24 +1055,55 @@ class FinancialAdvisorAgent:
 
         # Tight month/compare triggers — avoid bare "month" matching every dining Q
         month_compare_triggers = [
-            "more this month", "spending this month", "this month vs", "vs last month",
-            "last month", "month over month", "mom", "compare months", "compared to last",
-            "increase", "decreased", "spend trend", "spending trend",
+            "more this month",
+            "spending this month",
+            "this month vs",
+            "vs last month",
+            "last month",
+            "month over month",
+            "mom",
+            "compare months",
+            "compared to last",
+            "increase",
+            "decreased",
+            "spend trend",
+            "spending trend",
         ]
         if any(k in msg for k in month_compare_triggers):
             results.append(self.tool_monthly_comparison(user_id))
 
-        is_price_hike_query = any(k in msg for k in ["price hike", "price increase", "raised price", "cost went up"])
-        if any(k in msg for k in [
-            "cancel subscription", "cancellable", "save $", "cut subscriptions",
-            "which subscription", "subscriptions to cancel",
-        ]) and not is_price_hike_query:
+        is_price_hike_query = any(
+            k in msg for k in ["price hike", "price increase", "raised price", "cost went up"]
+        )
+        if (
+            any(
+                k in msg
+                for k in [
+                    "cancel subscription",
+                    "cancellable",
+                    "save $",
+                    "cut subscriptions",
+                    "which subscription",
+                    "subscriptions to cancel",
+                ]
+            )
+            and not is_price_hike_query
+        ):
             match = re.search(r"\$(\d+)", message)
             target = float(match.group(1)) if match else 100.0
             results.append(self.tool_find_cancellable_subscriptions(user_id, target_savings=target))
 
         if any(k in msg for k in ["credit score", "fico", "credit impact", "impact on credit"]):
-            known_cats = ["jewelry", "electronics", "groceries", "dining", "travel", "subscriptions", "gas", "clothing"]
+            known_cats = [
+                "jewelry",
+                "electronics",
+                "groceries",
+                "dining",
+                "travel",
+                "subscriptions",
+                "gas",
+                "clothing",
+            ]
             target_cat = next((c for c in known_cats if c in msg), None)
             results.append(self.tool_credit_score_impact(user_id, target_category=target_cat))
 
@@ -983,16 +1129,36 @@ class FinancialAdvisorAgent:
                     results.append(self.tool_category_advice(user_id, cat_key))
                     break
 
-        if any(k in msg for k in [
-            "save money", "savings plan", "savings strategy", "how to save",
-            "budget plan", "save more", "cut back spending", "reduce spending", "financial plan",
-        ]):
+        if any(
+            k in msg
+            for k in [
+                "save money",
+                "savings plan",
+                "savings strategy",
+                "how to save",
+                "budget plan",
+                "save more",
+                "cut back spending",
+                "reduce spending",
+                "financial plan",
+            ]
+        ):
             results.append(self.tool_savings_plan(user_id))
 
-        if any(k in msg for k in [
-            "fraud", "suspicious", "hacked", "stolen", "scam", "unauthorized",
-            "fraud check", "fraud alert", "risk scan",
-        ]):
+        if any(
+            k in msg
+            for k in [
+                "fraud",
+                "suspicious",
+                "hacked",
+                "stolen",
+                "scam",
+                "unauthorized",
+                "fraud check",
+                "fraud alert",
+                "risk scan",
+            ]
+        ):
             results.append(self.tool_realtime_fraud_check(user_id))
             results.append(self.tool_suspicious_activity_monitor(user_id))
 
@@ -1015,9 +1181,17 @@ class FinancialAdvisorAgent:
             show_chart = True
 
         # Pure spending totals / overview
-        if not results and any(k in msg for k in [
-            "how much", "total spend", "spending summary", "overview", "summary", "what did i spend",
-        ]):
+        if not results and any(
+            k in msg
+            for k in [
+                "how much",
+                "total spend",
+                "spending summary",
+                "overview",
+                "summary",
+                "what did i spend",
+            ]
+        ):
             results.append(self.tool_spending_summary(user_id))
             show_chart = True
 
@@ -1045,6 +1219,7 @@ class FinancialAdvisorAgent:
 
         if self._multi_agent_enabled():
             from agents.financial_orchestrator import FinancialOrchestrator
+
             if not hasattr(self, "_orchestrator") or getattr(self._orchestrator, "llm", None) is not self.llm:
                 self._orchestrator = FinancialOrchestrator(llm=self.llm)
             return self._orchestrator.chat(message, user_id, session_id=session_id, approved=approved)
@@ -1132,9 +1307,9 @@ class FinancialAdvisorAgent:
             if not isinstance(args, dict):
                 args = {}
             if name in registry:
-                results.append(registry.call(name, args, approved=True))
+                results.append(registry.call(name, args, approved=False))
         if not results and "spending_summary" in registry:
-            results.append(registry.call("spending_summary", {}, approved=True))
+            results.append(registry.call("spending_summary", {}))
         return results
 
     def _chat_react(
@@ -1206,8 +1381,7 @@ class FinancialAdvisorAgent:
             (isinstance(r, dict) and r.get("show_chart"))
             or (
                 isinstance(r, dict)
-                and r.get("tool")
-                in ("spending_summary", "market_fraud_insights", "monthly_comparison")
+                and r.get("tool") in ("spending_summary", "market_fraud_insights", "monthly_comparison")
             )
             for r in results
         )
@@ -1217,7 +1391,8 @@ class FinancialAdvisorAgent:
         reply = (out.get("reply") or "").strip()
         needs_synth = bool(results) and (
             not reply
-            or out.get("status") in (
+            or out.get("status")
+            in (
                 "max_steps",
                 "needs_synth",
                 "fallback_tool_error",
@@ -1243,7 +1418,7 @@ class FinancialAdvisorAgent:
         elif not reply and results:
             reply = self._compose_reply(message, results, session_id=session_id)
         elif not reply and not results:
-            results = [registry.call("spending_summary", {}, approved=True)]
+            results = [registry.call("spending_summary", {})]
             reply = self._llm_synthesize(message, results, session_id=session_id)
             if not reply or reply.startswith("LLM"):
                 reply = self._compose_reply(message, results, session_id=session_id)
@@ -1287,14 +1462,14 @@ class FinancialAdvisorAgent:
                 history = ""
                 if session_id:
                     history = get_memory().get_history(session_id)
-                
+
                 context = "\n".join(str(r) for r in tool_results[:6])
-                prompt = f"System: You are a professional Financial Advisor. Use tool data to answer specifically. Stay concise.\n\n"
+                prompt = "System: You are a professional Financial Advisor. Use tool data to answer specifically. Stay concise.\n\n"
                 if history:
                     prompt += f"Conversation History:\n{history}\n\n"
-                
+
                 prompt += f"Recent Data:\n{context}\n\nNew Question: {question}\n\nAssistant:"
-                
+
                 out = self.llm.generate(prompt, max_tokens=400, temp=0.4)
                 if out and out.strip():
                     return out.strip()
@@ -1312,7 +1487,7 @@ class FinancialAdvisorAgent:
                 continue
 
             if tool == "spending_summary":
-                cats = ", ".join(list(r['top_categories'].keys())[:4])
+                cats = ", ".join(list(r["top_categories"].keys())[:4])
                 parts.append(
                     f"**📊 Your Spending Overview**\n\n"
                     f"Total spend: **${r['total_spend']:,.2f}** | Monthly avg: **${r['avg_monthly_spend']:,.2f}**\n\n"
@@ -1323,7 +1498,9 @@ class FinancialAdvisorAgent:
             elif tool == "monthly_comparison":
                 chg = r.get("change_pct", 0)
                 arrow = "↑" if chg > 0 else "↓"
-                top_cats = ", ".join(f"{k} (${v:,.0f})" for k, v in list(r['top_categories_this_month'].items())[:3])
+                top_cats = ", ".join(
+                    f"{k} (${v:,.0f})" for k, v in list(r["top_categories_this_month"].items())[:3]
+                )
                 parts.append(
                     f"**📈 Monthly Comparison** {'📉 DOWN' if chg < 0 else '📈 UP'}\n\n"
                     f"You spent **${r['current_spend']:,.2f}** in {r['current_month']} vs **${r['previous_spend']:,.2f}** in {r['previous_month']} ({arrow}{abs(chg):.1f}%).\n\n"
@@ -1333,7 +1510,10 @@ class FinancialAdvisorAgent:
             elif tool == "find_cancellable_subscriptions":
                 subs = r.get("recommended_cancellations", [])[:3]
                 if subs:
-                    sub_lines = "\n".join(f"  - **{s['merchant']}** — ${s['monthly_cost']:.2f}/mo (${s['annual_cost']:,.2f}/yr)" for s in subs)
+                    sub_lines = "\n".join(
+                        f"  - **{s['merchant']}** — ${s['monthly_cost']:.2f}/mo (${s['annual_cost']:,.2f}/yr)"
+                        for s in subs
+                    )
                     parts.append(
                         f"**💡 Subscription Optimizer**\n\n"
                         f"Cancel these to save **${r['projected_monthly_savings']:.2f}/month**:\n\n{sub_lines}"
@@ -1343,8 +1523,7 @@ class FinancialAdvisorAgent:
                 score = r.get("estimated_credit_score", 0)
                 badge = "🟢" if score >= 740 else ("🟡" if score >= 670 else "🔴")
                 parts.append(
-                    f"**💳 Credit Score Analysis** {badge} **{score}**\n\n"
-                    f"{r.get('recommendation', '')}"
+                    f"**💳 Credit Score Analysis** {badge} **{score}**\n\n{r.get('recommendation', '')}"
                 )
 
             elif tool == "savings_plan":
@@ -1372,10 +1551,24 @@ class FinancialAdvisorAgent:
                     f"Reduce by **${o['potential_saving']:.2f}/mo** by: *{o['tip']}*."
                     for o in high_impact
                 )
-                high_section = f"\n**🔴 High-Impact Categories (Biggest Savings)**\n\n{high_lines}\n" if high_impact else ""
+                high_section = (
+                    f"\n**🔴 High-Impact Categories (Biggest Savings)**\n\n{high_lines}\n"
+                    if high_impact
+                    else ""
+                )
 
                 # --- Everyday Essentials ---
-                everyday_keys = ["grocery", "groceries", "gas", "fuel", "utilities", "electric", "water", "healthcare", "medical"]
+                everyday_keys = [
+                    "grocery",
+                    "groceries",
+                    "gas",
+                    "fuel",
+                    "utilities",
+                    "electric",
+                    "water",
+                    "healthcare",
+                    "medical",
+                ]
                 everyday = [o for o in ops[3:] if any(k in o["category"].lower() for k in everyday_keys)]
                 everyday_lines = "\n".join(
                     f"  - **{o['category']}** — ${o['monthly_spend']:,.2f}/mo → Save ${o['potential_saving']:.2f}/mo. *{o['tip']}*."
@@ -1383,9 +1576,13 @@ class FinancialAdvisorAgent:
                 )
                 everyday_sum = sum(o["potential_saving"] for o in everyday)
                 everyday_section = (
-                    f"\n**🟢 Everyday Essentials (Total: ${everyday_sum:.2f}/mo)**\n\n"
-                    f"These are necessary expenses but still have room for optimization:\n\n{everyday_lines}\n"
-                ) if everyday else ""
+                    (
+                        f"\n**🟢 Everyday Essentials (Total: ${everyday_sum:.2f}/mo)**\n\n"
+                        f"These are necessary expenses but still have room for optimization:\n\n{everyday_lines}\n"
+                    )
+                    if everyday
+                    else ""
+                )
 
                 # --- Subscriptions ---
                 subs = [o for o in ops[3:] if "subscription" in o["category"].lower()]
@@ -1395,9 +1592,13 @@ class FinancialAdvisorAgent:
                     for o in subs
                 )
                 sub_section = (
-                    f"\n**📦 Subscriptions & Recurring (Total: ${sub_sum:.2f}/mo)**\n\n"
-                    f"Recurring charges are often overlooked. Audit each one:\n\n{sub_lines}\n"
-                ) if subs else ""
+                    (
+                        f"\n**📦 Subscriptions & Recurring (Total: ${sub_sum:.2f}/mo)**\n\n"
+                        f"Recurring charges are often overlooked. Audit each one:\n\n{sub_lines}\n"
+                    )
+                    if subs
+                    else ""
+                )
 
                 # --- Discretionary / Other ---
                 others = [o for o in ops[3:] if o not in everyday and o not in subs]
@@ -1407,9 +1608,13 @@ class FinancialAdvisorAgent:
                     for o in others
                 )
                 other_section = (
-                    f"\n**🟡 Discretionary & Lifestyle (Total: ${other_sum:.2f}/mo)**\n\n"
-                    f"Non-essential spending where budgeting discipline pays off:\n\n{other_lines}\n"
-                ) if others else ""
+                    (
+                        f"\n**🟡 Discretionary & Lifestyle (Total: ${other_sum:.2f}/mo)**\n\n"
+                        f"Non-essential spending where budgeting discipline pays off:\n\n{other_lines}\n"
+                    )
+                    if others
+                    else ""
+                )
 
                 # --- Action Plan ---
                 action = (
@@ -1424,7 +1629,9 @@ class FinancialAdvisorAgent:
 
             elif tool == "category_advice":
                 tips = "\n".join(f"  - {t}" for t in r["tips"][:3])
-                risk_badge = {"low": "🟢", "medium": "🟡", "high": "🔴", "critical": "🚨"}.get(r["risk_level"], "⚪")
+                risk_badge = {"low": "🟢", "medium": "🟡", "high": "🔴", "critical": "🚨"}.get(
+                    r["risk_level"], "⚪"
+                )
                 parts.append(
                     f"**{r['label']}** {risk_badge}\n\n"
                     f"Your spend: **${r['user_spend']:,.2f}** | Annual waste: *{r['annual_waste_estimate']}*\n\n"
@@ -1450,22 +1657,32 @@ class FinancialAdvisorAgent:
                 )
 
             elif tool == "detect_price_hikes":
-                if r['alerts']:
-                    hikes = "\n".join(f"  - **{a['merchant']}**: ${a['old_price']:.2f} ➡️ ${a['new_price']:.2f} (+{a['increase_pct']}%)" for a in r['alerts'])
-                    parts.append(f"**🚨 Price Hike Alerts**\n\nThe following subscriptions recently increased in price:\n\n{hikes}")
+                if r["alerts"]:
+                    hikes = "\n".join(
+                        f"  - **{a['merchant']}**: ${a['old_price']:.2f} ➡️ ${a['new_price']:.2f} (+{a['increase_pct']}%)"
+                        for a in r["alerts"]
+                    )
+                    parts.append(
+                        f"**🚨 Price Hike Alerts**\n\nThe following subscriptions recently increased in price:\n\n{hikes}"
+                    )
                 else:
-                    parts.append("**✅ No Price Hikes Detected**\n\nAll of your recurring subscriptions have remained stable.")
-
+                    parts.append(
+                        "**✅ No Price Hikes Detected**\n\nAll of your recurring subscriptions have remained stable."
+                    )
 
             elif tool == "tax_deductible_finder":
-                if r['breakdown']:
-                    cats = "\n".join(f"  - **{k}**: ${v:.2f}" for k, v in r['breakdown'].items())
-                    parts.append(f"**🧾 Tax-Deductible Finder**\n\nYou have **${r['total_potential_deduction']:,.2f}** in potential write-offs:\n\n{cats}")
+                if r["breakdown"]:
+                    cats = "\n".join(f"  - **{k}**: ${v:.2f}" for k, v in r["breakdown"].items())
+                    parts.append(
+                        f"**🧾 Tax-Deductible Finder**\n\nYou have **${r['total_potential_deduction']:,.2f}** in potential write-offs:\n\n{cats}"
+                    )
                 else:
-                    parts.append("**🧾 No Deductibles**\n\nWe did not detect any obvious tax-deductible expenses.")
+                    parts.append(
+                        "**🧾 No Deductibles**\n\nWe did not detect any obvious tax-deductible expenses."
+                    )
 
             elif tool == "surplus_optimizer":
-                sugs = "\n".join(f"  - {s}" for s in r['suggestions'])
+                sugs = "\n".join(f"  - {s}" for s in r["suggestions"])
                 parts.append(
                     f"**📈 Surplus Optimizer**\n\n"
                     f"Estimated Income: ${r['assumed_monthly_income']:,.2f}\n"
@@ -1484,8 +1701,13 @@ class FinancialAdvisorAgent:
                 )
 
             elif tool == "market_fraud_insights":
-                trends = "\n".join(f"  - **{k}**: ${v}B" for k, v in list(r['global_scam_trends'].items())[:4])
-                local = "\n".join(f"  - **{it['category']}**: {it['risk_density_pct']}% risk density" for it in r['local_cat_fraud_heatmap'][:4])
+                trends = "\n".join(
+                    f"  - **{k}**: ${v}B" for k, v in list(r["global_scam_trends"].items())[:4]
+                )
+                local = "\n".join(
+                    f"  - **{it['category']}**: {it['risk_density_pct']}% risk density"
+                    for it in r["local_cat_fraud_heatmap"][:4]
+                )
                 parts.append(
                     f"**📊 Market Fraud Intelligence**\n\n"
                     f"**Global Scam Losses (FBI/IC3):**\n{trends}\n\n"
@@ -1493,8 +1715,11 @@ class FinancialAdvisorAgent:
                     f"💡 *Summary:* {r['summary']}"
                 )
 
-        return "\n\n---\n\n".join(parts) if parts else "No insights found for your query. Try asking about spending, savings, or fraud detection."
-
+        return (
+            "\n\n---\n\n".join(parts)
+            if parts
+            else "No insights found for your query. Try asking about spending, savings, or fraud detection."
+        )
 
     def get_all_users(self) -> list[str]:
         return sorted(self.df["user_id"].unique().tolist())

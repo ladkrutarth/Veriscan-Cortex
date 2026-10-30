@@ -9,10 +9,8 @@ This is NOT production-ready auth. It exists to:
 from __future__ import annotations
 
 import hashlib
-import os
 from dataclasses import dataclass
 from typing import Dict, Optional
-
 
 _PBKDF_SALT = b"veriscan-demo-salt"  # static salt for demo; do NOT copy to prod
 _PBKDF_ITER = 100_000
@@ -77,4 +75,3 @@ def get_user_store() -> DemoUserStore:
     if _GLOBAL_STORE is None:
         _GLOBAL_STORE = DemoUserStore()
     return _GLOBAL_STORE
-

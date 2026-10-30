@@ -10,23 +10,24 @@ Tools:
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import traceback
-from pathlib import Path
 from typing import Any, Dict, Optional
 
-from models.rag_engine_local import RAGEngineLocal
-from models.agent_tools_data import (
-    tool_get_user_risk_profile,
-    tool_get_high_risk_transactions,
-)
-from agents.tool_registry import ToolRegistry
-from agents.react_loop import ReactLoop
-from agents.trajectory_log import log_trajectory
 from agents.memory import get_memory
+from agents.react_loop import ReactLoop
+from agents.tool_registry import ToolRegistry
+from agents.trajectory_log import log_trajectory
+from core.logging_config import redact_session
+from models.agent_tools_data import (
+    tool_get_high_risk_transactions,
+    tool_get_user_risk_profile,
+)
+from models.rag_engine_local import RAGEngineLocal
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+logger = logging.getLogger(__name__)
 
 _rag_engine = None
 
@@ -41,6 +42,7 @@ def _get_rag():
 
 def _get_local_llm():
     from models.local_llm import LocalLLM
+
     return LocalLLM()
 
 
@@ -149,12 +151,14 @@ class LocalGuardAgent:
             if not user_id.startswith("USER"):
                 user_id = "USER_" + re.sub(r"\D", "", user_id)
 
-        if any(k in q for k in ["risk profile", "investigate", "analyze risk", "high risk score", "fraud"]):
-            if user_id or "user" in q:
-                profile = tool_get_user_risk_profile(user_id or "USER_0")
-                if isinstance(profile, dict):
-                    profile = {**profile, "tool": "get_user_risk_profile"}
-                results.append(profile)
+        wants_profile = any(
+            k in q for k in ["risk profile", "investigate", "analyze risk", "high risk score", "fraud"]
+        )
+        if wants_profile and (user_id or "user" in q):
+            profile = tool_get_user_risk_profile(user_id or "USER_0")
+            if isinstance(profile, dict):
+                profile = {**profile, "tool": "get_user_risk_profile"}
+            results.append(profile)
 
         if any(k in q for k in ["high risk transaction", "dangerous", "top high risk", "most dangerous"]):
             items = tool_get_high_risk_transactions(limit=10)
@@ -195,9 +199,7 @@ class LocalGuardAgent:
                     r = {**r, "tool": "get_user_risk_profile"}
                 results.append(r)
             elif os.environ.get("VERISCAN_EVAL_KEYWORD_ONLY", "").strip() == "1":
-                results.append(
-                    {"tool": "query_rag", "query": question, "context": "[eval stub]"}
-                )
+                results.append({"tool": "query_rag", "query": question, "context": "[eval stub]"})
             else:
                 results.append(tool_query_rag(question))
         return results
@@ -212,7 +214,7 @@ class LocalGuardAgent:
         """
         Tool-calling analysis loop. Falls back to keyword tools + LLM summary.
         """
-        print(f"⚡ GuardAgent ReAct (Session: {session_id}, approved={approved})")
+        logger.debug("GuardAgent ReAct session=%s approved=%s", redact_session(session_id), approved)
         if session_id:
             get_memory().add_message(session_id, "user", question)
 

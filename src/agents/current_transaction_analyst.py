@@ -4,12 +4,13 @@ Focus: this month, last 30/60/90 days, latest activity, recent fraud/risk flags.
 Returns structured dicts for the orchestrator to synthesize.
 """
 
-from pathlib import Path
+from datetime import timedelta
 from typing import Any, Optional
-from datetime import datetime, timedelta
+
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from paths import PROJECT_ROOT
+
 ADVISOR_DATA_PATH = PROJECT_ROOT / "data" / "csv_data" / "financial_advisor_dataset.csv"
 
 
@@ -64,12 +65,7 @@ class CurrentTransactionAnalyst:
         current_key = months[-1]
         curr = user_df[user_df["month_key"] == current_key]
         by_cat = (
-            curr.groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-            .head(10)
-            .round(2)
-            .to_dict()
+            curr.groupby("category")["amount"].sum().sort_values(ascending=False).head(10).round(2).to_dict()
         )
         return {
             "agent": "current_analyst",
@@ -88,13 +84,7 @@ class CurrentTransactionAnalyst:
         max_date = user_df["transaction_date"].max()
         cutoff = max_date - timedelta(days=days)
         recent = user_df[user_df["transaction_date"] >= cutoff]
-        by_cat = (
-            recent.groupby("category")["amount"]
-            .sum()
-            .sort_values(ascending=False)
-            .round(2)
-            .to_dict()
-        )
+        by_cat = recent.groupby("category")["amount"].sum().sort_values(ascending=False).round(2).to_dict()
         return {
             "agent": "current_analyst",
             "tool": "last_n_days",

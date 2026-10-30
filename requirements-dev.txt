@@ -1,0 +1,11 @@
+# Lightweight deps for unit/API tests and linting (no MLX, torch or ChromaDB needed).
+# Full runtime deps: requirements.txt
+fastapi>=0.100.0
+pydantic>=2.0.0
+python-multipart>=0.0.9
+pandas>=2.0.0
+numpy>=1.24.0
+httpx>=0.24
+pytest>=7.4
+pytest-cov>=4.1
+ruff>=0.6

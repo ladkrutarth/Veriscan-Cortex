@@ -6,4 +6,5 @@ export PYTHONPATH="${ROOT}/src:${ROOT}:${PYTHONPATH:-}"
 cd "$ROOT"
 # Reload only when src/ changes — watching the whole repo restarts the API
 # on Streamlit edits and makes the dashboard report "Backend API is not available".
-exec python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir "${ROOT}/src"
+# Uvicorn's access log is off: it prints query strings (session IDs); api.access logs paths only.
+exec python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir "${ROOT}/src" --no-access-log

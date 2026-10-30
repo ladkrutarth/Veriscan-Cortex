@@ -29,3 +29,7 @@ CHROMA_LOCAL_DIR = PROJECT_ROOT / ".chroma_db_local"
 CHROMA_MULTIMODAL_DIR = PROJECT_ROOT / ".chroma_db_multimodal"
 PIPELINE_LOG_PATH = LOGS_DIR / "pipeline_logs.csv"
 TRAJECTORY_LOG_PATH = LOGS_DIR / "trajectories.jsonl"
+
+# Trained fraud model artifacts (fraud_model_rf.joblib + encoders.joblib).
+MODEL_DIR = PROJECT_ROOT / "artifacts"
+LEGACY_MODEL_DIR = PROJECT_ROOT / "models"

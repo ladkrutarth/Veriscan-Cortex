@@ -157,8 +157,10 @@ class ReactLoop:
                 # Prefer synthesizing from tools we already ran
                 if tool_results:
                     prose = (raw or "").strip()
-                    reply = prose if prose and len(prose) > 40 and "{" not in prose[:20] else (
-                        "Tool results ready; summarizing."
+                    reply = (
+                        prose
+                        if prose and len(prose) > 40 and "{" not in prose[:20]
+                        else ("Tool results ready; summarizing.")
                     )
                     return self._finish(
                         reply,
@@ -180,8 +182,10 @@ class ReactLoop:
 
             action = str(decision.get("action", "")).lower().strip()
             # If model forgot action=final but returned an answer after tools
-            if action not in ("tool", "final") and tool_results and (
-                decision.get("answer") or decision.get("reply")
+            if (
+                action not in ("tool", "final")
+                and tool_results
+                and (decision.get("answer") or decision.get("reply"))
             ):
                 action = "final"
             trace.append(f"step{step}:{action}")
@@ -254,9 +258,7 @@ class ReactLoop:
 
             fp = _tool_fingerprint(tool_name, args)
             if fp in seen_calls:
-                observations.append(
-                    f"Duplicate call blocked for {tool_name}. Finish with action=final now."
-                )
+                observations.append(f"Duplicate call blocked for {tool_name}. Finish with action=final now.")
                 trace.append(f"step{step}:duplicate:{tool_name}")
                 continue
             seen_calls.add(fp)
@@ -275,8 +277,7 @@ class ReactLoop:
                 )
                 tools_used.append(tool_name)
                 reply = (
-                    f"Action '{tool_name}' requires human approval. "
-                    "Re-submit with approved=true to execute."
+                    f"Action '{tool_name}' requires human approval. Re-submit with approved=true to execute."
                 )
                 return self._finish(
                     reply,

@@ -4,11 +4,12 @@ Bank-statement/credit-card style: yearly totals, YoY comparison, monthly trends,
 category evolution, statement-style summaries. Returns structured dicts.
 """
 
-from pathlib import Path
 from typing import Any, Optional
+
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+from paths import PROJECT_ROOT
+
 ADVISOR_DATA_PATH = PROJECT_ROOT / "data" / "csv_data" / "financial_advisor_dataset.csv"
 HISTORY_MONTHS = 24
 
@@ -104,10 +105,14 @@ class HistoricalReviewAgent:
         hist = self._user_history(user_id)
         if hist.empty:
             return {"agent": "historical", "error": f"No data for {user_id}"}
-        by_year = hist.groupby("year").agg(
-            total=("amount", "sum"),
-            transaction_count=("amount", "count"),
-        ).round(2)
+        by_year = (
+            hist.groupby("year")
+            .agg(
+                total=("amount", "sum"),
+                transaction_count=("amount", "count"),
+            )
+            .round(2)
+        )
         summary = {
             str(int(y)): {"total": float(row["total"]), "transaction_count": int(row["transaction_count"])}
             for y, row in by_year.iterrows()
